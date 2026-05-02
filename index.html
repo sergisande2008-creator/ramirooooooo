@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Nevada Virtual Waiter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..700;1,300..700&family=Montserrat:wght@300..700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              slate: {
+                50: '#f5f2ed',
+                100: '#eeeae1',
+                200: '#e0dac8',
+                300: '#ccc1ab',
+                400: '#a39578',
+                500: '#857758',
+                600: '#665a3f',
+                700: '#4d432f',
+                800: '#332c1e',
+                900: '#1a160f',
+              },
+              blue: {
+                50: '#f2f7ef',
+                100: '#e1efdb',
+                200: '#c5e0ba',
+                300: '#a1cc91',
+                400: '#7bb366',
+                500: '#5c9646',
+                600: '#477535',
+                700: '#375c29',
+                800: '#2d4b22',
+                900: '#263f1e',
+              }
+            },
+            fontFamily: {
+              sans: ['Montserrat', 'sans-serif'],
+              serif: ['Cormorant Garamond', 'serif'],
+            },
+            keyframes: {
+              pulseScale: {
+                '0%, 100%': { transform: 'scale(1)' },
+                '50%': { transform: 'scale(1.1)' },
+              }
+            },
+            animation: {
+              pulseScale: 'pulseScale 1.5s ease-in-out infinite',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Hide scrollbar globally for a cleaner, app-like experience */
+      ::-webkit-scrollbar {
+        display: none;
+      }
+      
+      * {
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
+        
+        /* Mobile App Feel Fixes */
+        -webkit-tap-highlight-color: transparent; /* Elimina el recuadro azul/gris al tocar */
+        -webkit-touch-callout: none; /* Desactiva menú contextual en iOS */
+        -webkit-user-select: none; /* Safari: Evita selección de texto */
+        user-select: none; /* Standard: Evita selección de texto */
+      }
+
+      /* Permitir escribir en inputs */
+      input, textarea {
+        -webkit-user-select: text !important;
+        user-select: text !important;
+      }
+      
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "@google/genai": "https://esm.sh/@google/genai"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

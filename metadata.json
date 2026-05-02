@@ -1,0 +1,8 @@
+{
+  "name": "Nevada Virtual Waiter",
+  "description": "A mobile-first virtual waiter application allowing customers to order via touch or voice assistant Ramiro.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": []
+}
