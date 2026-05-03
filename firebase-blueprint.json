@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "Order": {
+      "title": "Order",
+      "description": "Represents an order placed by a customer in the Nevada app",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "table": { "type": "string" },
+        "tableNumber": { "type": "string" },
+        "location": { "type": "string" },
+        "guestCount": { "type": "number" },
+        "status": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "acceptedTimestamp": { "type": "number" },
+        "completedTimestamp": { "type": "number" },
+        "total": { "type": "number" },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/entities/CartItem" }
+        }
+      },
+      "required": ["id", "table", "tableNumber", "location", "guestCount", "status", "timestamp", "total", "items"]
+    },
+    "CartItem": {
+      "title": "CartItem",
+      "description": "An item in an order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "quantity": { "type": "number" },
+        "price": { "type": "number" }
+      },
+      "required": ["id", "name", "quantity", "price"]
+    }
+  },
+  "firestore": {
+    "/orders": {
+      "schema": "#/entities/Order",
+      "description": "All active and completed orders"
+    }
+  }
+}

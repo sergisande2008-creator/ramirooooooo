@@ -4,7 +4,6 @@ import { Screen, MenuCategory, MenuItem, CartItem, Order, OrderStatus } from './
 import { MENU_ITEMS, TABLES } from './constants';
 // Import from root ./Button
 import { Button } from './Button';
-// REMOVED: import { GoogleGenAI } from "@google/genai"; -> We use N8N now
 import { 
   Utensils, 
   ChefHat, 
@@ -27,6 +26,21 @@ import {
   Calendar,
   CalendarDays
 } from 'lucide-react';
+
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  onSnapshot, 
+  deleteDoc, 
+  query,
+  getDocs,
+  writeBatch
+} from 'firebase/firestore';
+import { auth, db } from './firebase';
+import { handleFirestoreError, OperationType } from './firebaseUtils';
+import { signInAnonymously } from 'firebase/auth';
 
 // --- CONFIGURATION ---
 
@@ -829,27 +843,23 @@ const App: React.FC = () => {
   const [orderSuccessMessage, setOrderSuccessMessage] = useState<boolean>(false);
   
   // Kitchen/Orders State
-  const [orders, setOrders] = useState<Order[]>(() => {
-    try {
-      const stored = localStorage.getItem('nevada_orders');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [orders, setOrders] = useState<Order[]>([]);
 
   useEffect(() => {
-    localStorage.setItem('nevada_orders', JSON.stringify(orders));
-  }, [orders]);
+    // Authenticate anonymously so we can read/write directly
+    signInAnonymously(auth).catch(err => console.warn('Anon auth error:', err));
+  }, []);
 
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'nevada_orders' && e.newValue) {
-        setOrders(JSON.parse(e.newValue));
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    const q = query(collection(db, 'orders'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const ordersData: Order[] = snapshot.docs.map(doc => doc.data() as Order);
+      setOrders(ordersData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'orders');
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // Cart Logic
@@ -884,12 +894,13 @@ const App: React.FC = () => {
     return cart.find(i => i.id === itemId)?.quantity || 0;
   };
 
-  const handleSendOrder = () => {
+  const handleSendOrder = async () => {
     if (cart.length === 0) return;
 
     // Create complete Order object with all details needed for webhook
+    const newOrderId = Math.random().toString(36).substr(2, 9);
     const newOrder: Order = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: newOrderId,
       table: `${selectedLocation} ${selectedTable}`,
       tableNumber: selectedTable || '00',
       location: selectedLocation || 'DESCONOCIDO',
@@ -900,7 +911,13 @@ const App: React.FC = () => {
       total: getCartTotal()
     };
 
-    setOrders(prev => [...prev, newOrder]);
+    try {
+      await setDoc(doc(db, 'orders', newOrderId), newOrder);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'orders');
+      return;
+    }
+    
     setCart([]);
     
     setOrderSuccessMessage(true);
@@ -912,12 +929,20 @@ const App: React.FC = () => {
     sendWebhook(WEBHOOK_URLS.NEW_ORDER, newOrder);
   };
 
-  const clearOrders = () => {
-    localStorage.removeItem('nevada_orders');
-    setOrders([]);
+  const clearOrders = async () => {
+    try {
+      const qs = await getDocs(collection(db, 'orders'));
+      const batch = writeBatch(db);
+      qs.forEach(document => {
+        batch.delete(document.ref);
+      });
+      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'orders');
+    }
   };
 
-  const updateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
+  const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
     const now = Date.now();
     
     // Find order to send data to webhook before state update completes
@@ -935,18 +960,15 @@ const App: React.FC = () => {
         sendWebhook(WEBHOOK_URLS.ORDER_COMPLETED, updatedOrder);
     }
 
-    setOrders(prev => prev.map(o => {
-      if (o.id === orderId) {
-        return { 
-            ...o, 
-            status: newStatus,
-            // Update timestamps based on status
-            acceptedTimestamp: newStatus === OrderStatus.IN_PROGRESS ? now : o.acceptedTimestamp,
-            completedTimestamp: newStatus === OrderStatus.COMPLETED ? now : o.completedTimestamp
-        };
-      }
-      return o;
-    }));
+    try {
+      await updateDoc(doc(db, 'orders', orderId), {
+        status: newStatus,
+        acceptedTimestamp: newStatus === OrderStatus.IN_PROGRESS ? now : orders[orderIndex].acceptedTimestamp || null,
+        completedTimestamp: newStatus === OrderStatus.COMPLETED ? now : orders[orderIndex].completedTimestamp || null
+      });
+    } catch(error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'orders');
+    }
   };
 
   return (
