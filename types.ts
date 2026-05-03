@@ -25,6 +25,7 @@ export interface MenuItem {
   price: number;
   category: MenuCategory;
   image: string;
+  outOfStock?: boolean;
 }
 
 export interface CartItem extends MenuItem {

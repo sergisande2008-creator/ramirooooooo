@@ -24,7 +24,12 @@ import {
   Sun,
   Loader2,
   Calendar,
-  CalendarDays
+  CalendarDays,
+  BarChart3,
+  TrendingUp,
+  ShoppingBag,
+  Award,
+  Users
 } from 'lucide-react';
 
 import { 
@@ -334,11 +339,12 @@ const MenuScreen: React.FC<{
   handleSendOrder: () => void;
   orderSuccessMessage: boolean;
   language: Language;
+  menuItems: MenuItem[];
 }> = ({ 
   selectedLocation, selectedTable, guestCount, setCurrentScreen,
   activeTab, setActiveTab, cart, selectedCategory, setSelectedCategory,
   getItemQuantity, addToCart, removeFromCart, getCartTotal, handleSendOrder,
-  orderSuccessMessage, language
+  orderSuccessMessage, language, menuItems
 }) => {
   const t = UI_TRANSLATIONS[language];
   return (
@@ -411,7 +417,7 @@ const MenuScreen: React.FC<{
 
           {/* Menu List */}
           <div className="space-y-5">
-            {MENU_ITEMS
+            {menuItems
               .filter(item => selectedCategory === MenuCategory.ALL || item.category === selectedCategory)
               .map((item) => {
                 const qty = getItemQuantity(item.id);
@@ -420,9 +426,16 @@ const MenuScreen: React.FC<{
                 const { name, description } = translatedItem;
 
                 return (
-                  <div key={item.id} className="bg-white p-3 rounded-[24px] shadow-sm border border-slate-100 flex gap-4 items-center group active:scale-[0.98] transition-transform duration-200 relative overflow-hidden">
+                  <div key={item.id} className={`bg-white p-3 rounded-[24px] shadow-sm border border-slate-100 flex gap-4 items-center group transition-transform duration-200 relative overflow-hidden ${item.outOfStock ? 'opacity-70' : 'active:scale-[0.98]'}`}>
                     
-                    <img src={item.image} alt={name} className="w-20 h-20 rounded-2xl object-cover shadow-md" />
+                    <div className="relative">
+                      <img src={item.image} alt={name} className={`w-20 h-20 rounded-2xl object-cover shadow-md ${item.outOfStock ? 'grayscale' : ''}`} />
+                      {item.outOfStock && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-2xl">
+                          <span className="text-white text-[10px] font-bold px-2 py-1 bg-red-600 rounded-full">{t.outOfStock || "Agotado"}</span>
+                        </div>
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0 py-1">
                       <h3 className="font-serif font-bold text-slate-900 text-base mb-1 leading-tight">{name}</h3>
                       <p className="text-slate-400 text-xs line-clamp-2 mb-3 leading-relaxed">{description}</p>
@@ -432,11 +445,12 @@ const MenuScreen: React.FC<{
                         {/* Quantity Control Button */}
                         {qty === 0 ? (
                             <button 
+                              disabled={item.outOfStock}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 addToCart(item); // Note: keeping original item structure for cart mechanics
                               }}
-                              className="w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white"
+                              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm ${item.outOfStock ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white'}`}
                             >
                               <Plus size={20} />
                             </button>
@@ -736,7 +750,12 @@ const AdminDashboardScreen: React.FC<{
   orders: Order[];
   updateOrderStatus: (id: string, s: OrderStatus) => void;
   clearOrders: () => void;
-}> = ({ setCurrentScreen, orders, updateOrderStatus, clearOrders }) => {
+  menuItems: MenuItem[];
+  updateMenuItem: (item: MenuItem) => void;
+}> = ({ setCurrentScreen, orders, updateOrderStatus, clearOrders, menuItems, updateMenuItem }) => {
+  const [activeTab, setActiveTab] = useState<'INICIO' | 'RESUMENES' | 'CARTA'>('INICIO');
+  const [menuSearchQuery, setMenuSearchQuery] = useState('');
+  
   // Add state for selected date
   const [selectedDate, setSelectedDate] = useState<string>(() => {
       const now = new Date();
@@ -768,119 +787,374 @@ const AdminDashboardScreen: React.FC<{
       }
   };
 
+  const [summaryDailyDate, setSummaryDailyDate] = useState<string>(() => {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  });
+  const [summaryMonthlyDate, setSummaryMonthlyDate] = useState<string>(() => {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  // Summaries Calculations
+  const dailyOrders = orders.filter(
+      order => new Date(order.timestamp).toDateString() === new Date(summaryDailyDate).toDateString()
+  );
+  const dailyTotal = dailyOrders.reduce((sum, o) => sum + o.total, 0);
+
+  const [summaryMonthlyYear, summaryMonthlyMonth] = summaryMonthlyDate.split('-');
+  const monthlyOrders = orders.filter(order => {
+      const orderDate = new Date(order.timestamp);
+      return orderDate.getMonth() === parseInt(summaryMonthlyMonth) - 1 && orderDate.getFullYear() === parseInt(summaryMonthlyYear);
+  });
+  const monthlyTotal = monthlyOrders.reduce((sum, o) => sum + o.total, 0);
+
+  const globalTotal = orders.reduce((sum, o) => sum + o.total, 0);
+  const totalGuests = orders.reduce((sum, o) => sum + o.guestCount, 0);
+  const averageTicket = orders.length > 0 ? (globalTotal / orders.length) : 0;
+
+  const getTopProducts = (orderList: typeof orders) => {
+      const productSales: Record<string, {name: string, quantity: number, total: number}> = {};
+      orderList.forEach(order => {
+        order.items.forEach(item => {
+          if (!productSales[item.id]) {
+            productSales[item.id] = { name: item.name, quantity: 0, total: 0 };
+          }
+          productSales[item.id].quantity += item.quantity;
+          productSales[item.id].total += (item.quantity * item.price);
+        });
+      });
+    
+      return Object.values(productSales)
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, 5);
+  };
+  const topProductsGlobal = getTopProducts(orders);
+
   return (
-      <div className="min-h-screen bg-slate-50 p-6 md:p-8">
-          <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8 max-w-7xl mx-auto">
-              <div>
-                  <h1 className="text-3xl font-serif font-black text-slate-900 mb-1">Dashboard</h1>
-                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
-                      HISTORIAL DE COMANDAS
-                  </p>
-              </div>
-              
-              <div className="flex flex-wrap items-center gap-4">
-                  <button
-                      onClick={() => {
-                          if(confirm('¿Estás seguro de que quieres borrar el historial entero? Esta acción es irreversible.')) {
-                              clearOrders();
-                          }
-                      }}
-                      className="px-4 py-2.5 bg-red-50 text-red-600 font-bold uppercase text-xs tracking-widest rounded-xl hover:bg-red-100 transition-colors border border-red-200"
-                  >
-                      Borrar Todo
-                  </button>
+      <div className="min-h-screen bg-slate-50 flex">
+          {/* Sidebar */}
+          <aside className="w-64 bg-slate-900 text-white flex flex-col p-6 shadow-xl shrink-0 z-10 hidden md:flex">
+             <h1 className="text-3xl font-serif font-black mb-12 tracking-wide mt-2">NEVADA<span className="text-blue-500">.</span></h1>
+             
+             <nav className="flex-1 space-y-2">
+                 <button 
+                     onClick={() => setActiveTab('INICIO')}
+                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm tracking-wide ${activeTab === 'INICIO' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                 >
+                     <Home size={18} />
+                     Inicio
+                 </button>
+                 <button 
+                     onClick={() => setActiveTab('RESUMENES')}
+                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm tracking-wide ${activeTab === 'RESUMENES' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                 >
+                     <BarChart3 size={18} />
+                     Resúmenes
+                 </button>
+                 <button 
+                     onClick={() => setActiveTab('CARTA')}
+                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm tracking-wide ${activeTab === 'CARTA' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                 >
+                     <Utensils size={18} />
+                     Gestión de Carta
+                 </button>
+             </nav>
+             <button
+                 onClick={() => setCurrentScreen(window.location.pathname.startsWith('/dashboard') ? Screen.ADMIN_DASHBOARD : Screen.LANDING)}
+                 className="mt-auto flex items-center justify-center gap-2 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all font-bold text-sm"
+             >
+                 <Lock size={16} />
+                 Salir
+             </button>
+          </aside>
 
-                  {/* Date Picker */}
-                  <div className="relative flex items-center">
-                      <div className="absolute left-3 text-slate-400 pointer-events-none">
-                          <CalendarDays size={18} />
+          {/* Main Content */}
+          <div className="flex-1 max-h-screen overflow-x-hidden overflow-y-auto w-full">
+              {activeTab === 'INICIO' && (
+                  <div className="p-6 md:p-8">
+                      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+                          <div>
+                              <h1 className="text-3xl font-serif font-black text-slate-900 mb-1">Dashboard</h1>
+                              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
+                                  HISTORIAL DE COMANDAS
+                              </p>
+                          </div>
+                      
+                          <div className="flex flex-wrap items-center gap-4">
+                              {/* Date Picker */}
+                              <div className="relative flex items-center">
+                                  <div className="absolute left-3 text-slate-400 pointer-events-none">
+                                      <CalendarDays size={18} />
+                                  </div>
+                                  <input 
+                                      type="date" 
+                                      value={selectedDate}
+                                      onChange={(e) => setSelectedDate(e.target.value)}
+                                      className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+                                  />
+                              </div>
+                              <button
+                                  onClick={() => setCurrentScreen(window.location.pathname.startsWith('/dashboard') ? Screen.ADMIN_DASHBOARD : Screen.LANDING)}
+                                  className="md:hidden p-3 bg-white rounded-xl text-slate-400 hover:text-slate-900 shadow-sm border border-slate-200 transition-colors"
+                              >
+                                  <Lock size={20} />
+                              </button>
+                          </div>
+                      </header>
+
+                      <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+                          <div className="overflow-x-auto">
+                              <table className="w-full text-left text-sm whitespace-nowrap">
+                                  <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-xs tracking-wider border-b border-slate-200">
+                                      <tr>
+                                          <th className="px-4 py-4">Numero_Pedido</th>
+                                          <th className="px-4 py-4">Numero_Mesa</th>
+                                          <th className="px-4 py-4">Ubicacion</th>
+                                          <th className="px-4 py-4">Pedido</th>
+                                          <th className="px-4 py-4">Hora_Pedido</th>
+                                          <th className="px-4 py-4">Hora_Aceptado</th>
+                                          <th className="px-4 py-4">Hora_Entrega</th>
+                                          <th className="px-4 py-4 text-center">Estado</th>
+                                          <th className="px-4 py-4">Notas_especiales</th>
+                                          <th className="px-4 py-4 text-center">Comensales</th>
+                                          <th className="px-4 py-4 text-right">Total</th>
+                                          <th className="px-4 py-4 text-center">Acciones</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                      {sortedOrders.map((order) => (
+                                          <tr key={order.id} className="hover:bg-slate-50 transition-colors">
+                                              <td className="px-4 py-4 font-mono text-xs text-slate-500">{order.id}</td>
+                                              <td className="px-4 py-4 font-bold text-slate-900 text-center">{order.tableNumber}</td>
+                                              <td className="px-4 py-4 font-medium text-slate-600">{order.location}</td>
+                                              <td className="px-4 py-4 text-slate-600 whitespace-normal min-w-[200px]">
+                                                  {order.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
+                                              </td>
+                                              <td className="px-4 py-4 text-slate-500 text-xs">{formatDate(order.timestamp)}</td>
+                                              <td className="px-4 py-4 text-slate-500 text-xs">{formatDate(order.acceptedTimestamp)}</td>
+                                              <td className="px-4 py-4 text-slate-500 text-xs">{formatDate(order.completedTimestamp)}</td>
+                                              <td className="px-4 py-4 text-center">
+                                                  <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${getStatusColor(order.status)}`}>
+                                                      {order.status}
+                                                  </span>
+                                              </td>
+                                              <td className="px-4 py-4 text-slate-500"></td>
+                                              <td className="px-4 py-4 text-center font-bold text-slate-600">{order.guestCount}</td>
+                                              <td className="px-4 py-4 text-right font-bold text-slate-900">{order.total.toFixed(2)}€</td>
+                                              <td className="px-4 py-4 text-center">
+                                                  {order.status === OrderStatus.PENDING && (
+                                                      <button 
+                                                          onClick={() => updateOrderStatus(order.id, OrderStatus.IN_PROGRESS)}
+                                                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors"
+                                                      >
+                                                          Cocinar
+                                                      </button>
+                                                  )}
+                                                  {order.status === OrderStatus.IN_PROGRESS && (
+                                                      <button 
+                                                          onClick={() => updateOrderStatus(order.id, OrderStatus.COMPLETED)}
+                                                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors"
+                                                      >
+                                                          Completar
+                                                      </button>
+                                                  )}
+                                              </td>
+                                          </tr>
+                                      ))}
+                                      {sortedOrders.length === 0 && (
+                                          <tr>
+                                              <td colSpan={12} className="px-4 py-8 text-center text-slate-500 font-medium">
+                                                  No hay pedidos registrados
+                                              </td>
+                                          </tr>
+                                      )}
+                                  </tbody>
+                              </table>
+                          </div>
                       </div>
-                      <input 
-                          type="date" 
-                          value={selectedDate}
-                          onChange={(e) => setSelectedDate(e.target.value)}
-                          className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
-                      />
                   </div>
+              )}
+              
+              {activeTab === 'RESUMENES' && (
+                  <div className="p-6 md:p-8 flex-1">
+                      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+                          <div>
+                              <h1 className="text-3xl font-serif font-black text-slate-900 mb-1">Resúmenes</h1>
+                              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
+                                  FACTURACIÓN GLOBAL
+                              </p>
+                          </div>
+                          <button
+                              onClick={() => setCurrentScreen(window.location.pathname.startsWith('/dashboard') ? Screen.ADMIN_DASHBOARD : Screen.LANDING)}
+                              className="md:hidden p-3 bg-white rounded-xl text-slate-400 hover:text-slate-900 shadow-sm border border-slate-200 transition-colors self-end"
+                          >
+                              <Lock size={20} />
+                          </button>
+                      </header>
 
-                  <button
-                      onClick={() => setCurrentScreen(window.location.pathname.startsWith('/dashboard') ? Screen.ADMIN_DASHBOARD : Screen.LANDING)}
-                      className="p-3 bg-white rounded-xl text-slate-400 hover:text-slate-900 shadow-sm border border-slate-200 transition-colors"
-                  >
-                      <Lock size={20} />
-                  </button>
-              </div>
-          </header>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden group w-full">
+                               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                   <BarChart3 size={64} className="text-blue-500" />
+                               </div>
+                               <div className="flex justify-between items-start relative z-10 mb-6 gap-4 flex-col sm:flex-row">
+                                 <div>
+                                   <h3 className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">Facturación Diaria</h3>
+                                   <p className="text-sm text-slate-400 font-medium hidden sm:block">Recaudación por día</p>
+                                 </div>
+                                 <input 
+                                     type="date" 
+                                     value={summaryDailyDate}
+                                     onChange={(e) => setSummaryDailyDate(e.target.value)}
+                                     className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm w-full sm:w-auto"
+                                 />
+                               </div>
+                               <p className="text-4xl sm:text-5xl font-serif font-black text-slate-900 relative z-10">{dailyTotal.toFixed(2)}€</p>
+                           </div>
+                           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden group w-full">
+                               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                   <Calendar size={64} className="text-blue-500" />
+                               </div>
+                               <div className="flex justify-between items-start relative z-10 mb-6 gap-4 flex-col sm:flex-row">
+                                 <div>
+                                   <h3 className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">Facturación Mensual</h3>
+                                   <p className="text-sm text-slate-400 font-medium hidden sm:block">Recaudación por mes</p>
+                                 </div>
+                                 <input 
+                                     type="month" 
+                                     value={summaryMonthlyDate}
+                                     onChange={(e) => setSummaryMonthlyDate(e.target.value)}
+                                     className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm w-full sm:w-auto"
+                                 />
+                               </div>
+                               <p className="text-4xl sm:text-5xl font-serif font-black text-slate-900 relative z-10">{monthlyTotal.toFixed(2)}€</p>
+                           </div>
+                      </div>
 
-          <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
-              <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm whitespace-nowrap">
-                      <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-xs tracking-wider border-b border-slate-200">
-                          <tr>
-                              <th className="px-4 py-4">Numero_Pedido</th>
-                              <th className="px-4 py-4">Numero_Mesa</th>
-                              <th className="px-4 py-4">Ubicacion</th>
-                              <th className="px-4 py-4">Pedido</th>
-                              <th className="px-4 py-4">Hora_Pedido</th>
-                              <th className="px-4 py-4">Hora_Aceptado</th>
-                              <th className="px-4 py-4">Hora_Entrega</th>
-                              <th className="px-4 py-4 text-center">Estado</th>
-                              <th className="px-4 py-4">Notas_especiales</th>
-                              <th className="px-4 py-4 text-center">Comensales</th>
-                              <th className="px-4 py-4 text-right">Total</th>
-                              <th className="px-4 py-4 text-center">Acciones</th>
-                          </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                          {sortedOrders.map((order) => (
-                              <tr key={order.id} className="hover:bg-slate-50 transition-colors">
-                                  <td className="px-4 py-4 font-mono text-xs text-slate-500">{order.id}</td>
-                                  <td className="px-4 py-4 font-bold text-slate-900 text-center">{order.tableNumber}</td>
-                                  <td className="px-4 py-4 font-medium text-slate-600">{order.location}</td>
-                                  <td className="px-4 py-4 text-slate-600 whitespace-normal min-w-[200px]">
-                                      {order.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
-                                  </td>
-                                  <td className="px-4 py-4 text-slate-500 text-xs">{formatDate(order.timestamp)}</td>
-                                  <td className="px-4 py-4 text-slate-500 text-xs">{formatDate(order.acceptedTimestamp)}</td>
-                                  <td className="px-4 py-4 text-slate-500 text-xs">{formatDate(order.completedTimestamp)}</td>
-                                  <td className="px-4 py-4 text-center">
-                                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${getStatusColor(order.status)}`}>
-                                          {order.status}
-                                      </span>
-                                  </td>
-                                  <td className="px-4 py-4 text-slate-500"></td>
-                                  <td className="px-4 py-4 text-center font-bold text-slate-600">{order.guestCount}</td>
-                                  <td className="px-4 py-4 text-right font-bold text-slate-900">{order.total.toFixed(2)}€</td>
-                                  <td className="px-4 py-4 text-center">
-                                      {order.status === OrderStatus.PENDING && (
-                                          <button 
-                                              onClick={() => updateOrderStatus(order.id, OrderStatus.IN_PROGRESS)}
-                                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors"
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
+                              <h3 className="text-slate-800 font-bold mb-6 flex items-center gap-2">
+                                  <TrendingUp className="text-blue-500" size={20} />
+                                  Métricas Globales (Histórico)
+                              </h3>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-center">
+                                      <div className="text-slate-400 mb-2 flex items-center gap-2 text-sm font-medium"><ShoppingBag size={16}/> Comandas Totales</div>
+                                      <div className="text-2xl font-black text-slate-900">{orders.length}</div>
+                                  </div>
+                                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-center">
+                                      <div className="text-slate-400 mb-2 flex items-center gap-2 text-sm font-medium"><Award size={16}/> Ticket Medio</div>
+                                      <div className="text-2xl font-black text-slate-900">{averageTicket.toFixed(2)}€</div>
+                                  </div>
+                                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-center">
+                                      <div className="text-slate-400 mb-2 flex items-center gap-2 text-sm font-medium"><Users size={16}/> Total Comensales</div>
+                                      <div className="text-2xl font-black text-slate-900">{totalGuests}</div>
+                                  </div>
+                              </div>
+                          </div>
+                          
+                          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                              <h3 className="text-slate-800 font-bold mb-6 flex items-center gap-2">
+                                 <Award className="text-amber-500" size={20} /> 
+                                 Top 5 Productos
+                              </h3>
+                              <div className="space-y-4">
+                                  {topProductsGlobal.length > 0 ? topProductsGlobal.map((prod, idx) => (
+                                      <div key={idx} className="flex items-center justify-between border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                                          <div className="flex flex-col pr-2">
+                                              <span className="font-bold text-slate-900 text-sm line-clamp-1">{prod.name}</span>
+                                              <span className="text-xs text-slate-500 mt-0.5">{prod.quantity} unidades vendidas</span>
+                                          </div>
+                                          <div className="font-black text-blue-600 text-sm whitespace-nowrap">
+                                              {prod.total.toFixed(2)}€
+                                          </div>
+                                      </div>
+                                  )) : (
+                                      <div className="text-sm text-slate-400 font-medium text-center py-4 bg-slate-50 rounded-xl border border-slate-100">No hay ventas registradas.</div>
+                                  )}
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
+              {activeTab === 'CARTA' && (
+                  <div className="animate-fade-in pb-12 w-full max-w-4xl mx-auto">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                          <div>
+                              <h2 className="text-3xl font-black text-slate-800 tracking-tight">Gestión de la Carta</h2>
+                              <p className="text-slate-500 mt-1">Activa o desactiva platos y actualiza sus precios.</p>
+                          </div>
+                          
+                          <div className="relative">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                              <input 
+                                  type="text"
+                                  placeholder="Buscar plato..."
+                                  value={menuSearchQuery}
+                                  onChange={(e) => setMenuSearchQuery(e.target.value)}
+                                  className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
+                              />
+                          </div>
+                      </div>
+
+                      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                          <div className="p-4 border-b border-slate-200 bg-slate-50 flex font-bold text-slate-500 text-sm">
+                              <div className="flex-1">Plato</div>
+                              <div className="w-32 text-center">Estado</div>
+                              <div className="w-32 text-right">Precio</div>
+                          </div>
+                          <div className="divide-y divide-slate-100">
+                              {menuItems
+                                .filter(item => item.name.toLowerCase().includes(menuSearchQuery.toLowerCase()) || item.description.toLowerCase().includes(menuSearchQuery.toLowerCase()))
+                                .map(item => (
+                                  <div key={item.id} className={`p-4 flex items-center transition-colors ${item.outOfStock ? 'bg-slate-50' : 'hover:bg-slate-50/50'}`}>
+                                      <div className="flex-1 flex flex-col md:flex-row gap-4 items-start md:items-center pr-4">
+                                          <img src={item.image} alt={item.name} className={`w-16 h-16 rounded-xl object-cover shadow-sm ${item.outOfStock ? 'grayscale opacity-60' : ''}`} />
+                                          <div>
+                                              <div className="font-bold text-slate-900">{item.name}</div>
+                                              <div className="text-xs text-slate-400 mt-0.5 max-w-xs line-clamp-1">{item.description}</div>
+                                              <span className="inline-block mt-2 px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[10px] font-bold uppercase tracking-wider">{item.category}</span>
+                                          </div>
+                                      </div>
+                                      
+                                      <div className="w-32 flex justify-center">
+                                          <button
+                                              onClick={() => updateMenuItem({ ...item, outOfStock: !item.outOfStock })}
+                                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${!item.outOfStock ? 'bg-green-500' : 'bg-slate-300'}`}
                                           >
-                                              Cocinar
+                                              <span className="sr-only">Toggle stock</span>
+                                              <span
+                                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${!item.outOfStock ? 'translate-x-6' : 'translate-x-1'}`}
+                                              />
                                           </button>
-                                      )}
-                                      {order.status === OrderStatus.IN_PROGRESS && (
-                                          <button 
-                                              onClick={() => updateOrderStatus(order.id, OrderStatus.COMPLETED)}
-                                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors"
-                                          >
-                                              Completar
-                                          </button>
-                                      )}
-                                  </td>
-                              </tr>
-                          ))}
-                          {sortedOrders.length === 0 && (
-                              <tr>
-                                  <td colSpan={12} className="px-4 py-8 text-center text-slate-500 font-medium">
-                                      No hay pedidos registrados
-                                  </td>
-                              </tr>
-                          )}
-                      </tbody>
-                  </table>
-              </div>
+                                      </div>
+
+                                      <div className="w-32 flex justify-end">
+                                          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
+                                              <input 
+                                                  type="number"
+                                                  step="0.10"
+                                                  min="0"
+                                                  value={item.price}
+                                                  onChange={(e) => {
+                                                      const val = parseFloat(e.target.value);
+                                                      if (!isNaN(val)) {
+                                                          updateMenuItem({ ...item, price: val });
+                                                      }
+                                                  }}
+                                                  className="w-16 text-right outline-none text-slate-800 font-bold bg-transparent"
+                                              />
+                                              <span className="text-slate-500 font-bold">€</span>
+                                          </div>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  </div>
+              )}
           </div>
       </div>
   );
@@ -907,12 +1181,16 @@ const App: React.FC = () => {
   
   // Kitchen/Orders State
   const [orders, setOrders] = useState<Order[]>([]);
+  
+  // Menu State
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
 
   useEffect(() => {
     // Authenticate anonymously so we can read/write directly
     signInAnonymously(auth).catch(err => console.warn('Anon auth error:', err));
   }, []);
 
+  // Sync orders
   useEffect(() => {
     const q = query(collection(db, 'orders'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -920,6 +1198,29 @@ const App: React.FC = () => {
       setOrders(ordersData);
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'orders');
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Sync menu
+  useEffect(() => {
+    const q = query(collection(db, 'menu'));
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      if (snapshot.empty) {
+        // Populate if empty
+        const batch = writeBatch(db);
+        MENU_ITEMS.forEach(item => {
+          const docRef = doc(collection(db, 'menu'), item.id);
+          batch.set(docRef, item);
+        });
+        await batch.commit().catch(e => console.error("Error batch committing menu", e));
+      } else {
+        const menuData: MenuItem[] = snapshot.docs.map(doc => doc.data() as MenuItem);
+        setMenuItems(menuData);
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'menu');
     });
 
     return () => unsubscribe();
@@ -1034,6 +1335,14 @@ const App: React.FC = () => {
     }
   };
 
+  const updateMenuItem = async (updatedItem: MenuItem) => {
+    try {
+      await setDoc(doc(db, 'menu', updatedItem.id), updatedItem, { merge: true });
+    } catch(error) {
+      handleFirestoreError(error, OperationType.WRITE, 'menu');
+    }
+  };
+
   return (
     <div className="antialiased font-sans text-slate-900 select-none bg-slate-50">
       {currentScreen === Screen.LANDING && (
@@ -1078,6 +1387,7 @@ const App: React.FC = () => {
           guestCount={guestCount}
           orderSuccessMessage={orderSuccessMessage}
           language={language}
+          menuItems={menuItems}
         />
       )}
       {currentScreen === Screen.CHEF_LOGIN && (
@@ -1100,6 +1410,8 @@ const App: React.FC = () => {
           orders={orders}
           updateOrderStatus={updateOrderStatus}
           clearOrders={clearOrders}
+          menuItems={menuItems}
+          updateMenuItem={updateMenuItem}
         />
       )}
     </div>
