@@ -830,6 +830,17 @@ const AdminDashboardScreen: React.FC<{
   const [activeTab, setActiveTab] = useState<'INICIO' | 'RESUMENES' | 'CARTA' | 'CUENTAS'>('INICIO');
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
   
+  const pendingBillsCount = billRequests.filter(b => b.status === 'PENDING').length;
+  const prevPendingBillsRef = useRef(pendingBillsCount);
+
+  useEffect(() => {
+      if (pendingBillsCount > prevPendingBillsRef.current) {
+          const audio = new Audio('https://actions.google.com/sounds/v1/doors/front_doorbell.ogg');
+          audio.play().catch(e => console.log('Audio play failed:', e));
+      }
+      prevPendingBillsRef.current = pendingBillsCount;
+  }, [pendingBillsCount]);
+
   // Add state for selected date
   const [selectedDate, setSelectedDate] = useState<string>(() => {
       const now = new Date();
