@@ -344,11 +344,12 @@ const MenuScreen: React.FC<{
   language: Language;
   menuItems: MenuItem[];
   hasActiveOrders: boolean;
+  orders: Order[];
 }> = ({ 
   selectedLocation, selectedTable, guestCount, setCurrentScreen,
   activeTab, setActiveTab, cart, selectedCategory, setSelectedCategory,
   getItemQuantity, addToCart, removeFromCart, getCartTotal, handleSendOrder,
-  handleRequestBill, orderSuccessMessage, billSuccessMessage, language, menuItems, hasActiveOrders
+  handleRequestBill, orderSuccessMessage, billSuccessMessage, language, menuItems, hasActiveOrders, orders
 }) => {
   const t = UI_TRANSLATIONS[language];
   return (
@@ -552,33 +553,49 @@ const MenuScreen: React.FC<{
         </div>
       )}
 
-      {activeTab === 'bill' && (
+      {activeTab === 'bill' && (() => {
+        const activeOrders = orders.filter(o => o.location === selectedLocation && o.tableNumber === selectedTable && !o.paid);
+        const totalAmount = activeOrders.reduce((acc, order) => acc + order.total, 0);
+        return (
         <div className="flex flex-col items-center justify-center h-full pt-10">
           <h2 className="text-4xl font-serif font-black text-slate-900 mb-2 text-center">{t.ask_bill_label || 'LA CUENTA'}</h2>
-          <p className="text-blue-600 font-bold text-xs tracking-widest uppercase mb-12 text-center">{t.table_service}</p>
+          <p className="text-blue-600 font-bold text-xs tracking-widest uppercase mb-8 text-center">{t.table_service}</p>
           
-          <div className="flex flex-col items-center opacity-80 mt-10 max-w-sm text-center">
-            <div className="w-24 h-24 bg-slate-200 rounded-full flex items-center justify-center mb-6 shadow-inner">
-              <span className="text-4xl">👋</span>
-            </div>
-            <p className="text-slate-500 font-medium text-sm mb-8">
-              {t.ask_bill_desc}
-            </p>
-            <Button
-              className="bg-blue-600 text-white shadow-xl shadow-blue-600/20"
-              onClick={() => {
-                handleRequestBill();
-                // We'll leave them on this tab, they have an alert.
-              }}
-            >
-              <span className="flex items-center gap-2">
-                <CheckCircle size={18} />
-                {t.ask_bill || 'PEDIR LA CUENTA'}
-              </span>
-            </Button>
+          <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8">
+             <div className="flex justify-between items-center mb-6">
+                <span className="text-slate-500 font-bold text-sm">TOTAL A PAGAR</span>
+                <span className="text-3xl font-black text-slate-900">{totalAmount.toFixed(2)}€</span>
+             </div>
+             
+             <div className="space-y-3 mb-6">
+                <Button
+                  fullWidth
+                  className="bg-black text-white hover:bg-slate-800 shadow-xl shadow-black/20 py-4 relative overflow-hidden"
+                  onClick={() => {
+                    alert("Redirigiendo a pasarela de pago (Stripe)...");
+                  }}
+                >
+                  <span className="flex items-center justify-center gap-2 relative z-10 w-full">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-5 h-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                    Pagar ahora (Tarjeta / Apple Pay)
+                  </span>
+                </Button>
+                
+                <Button
+                  fullWidth
+                  variant="outline"
+                  className="py-4 border-slate-200 text-slate-600 hover:bg-slate-50"
+                  onClick={() => handleRequestBill()}
+                >
+                  <span className="flex items-center gap-2">
+                    <CheckCircle size={18} />
+                    {t.ask_bill || 'PEDIR A CAMARERO'}
+                  </span>
+                </Button>
+             </div>
           </div>
         </div>
-      )}
+      );})()}
     </div>
 
     {orderSuccessMessage && (
@@ -1604,6 +1621,7 @@ const App: React.FC = () => {
           language={language}
           menuItems={menuItems}
           hasActiveOrders={orders.some(o => o.location === selectedLocation && o.tableNumber === selectedTable && !o.paid)}
+          orders={orders}
         />
       )}
       {currentScreen === Screen.CHEF_LOGIN && (
