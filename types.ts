@@ -47,6 +47,7 @@ export interface BillRequest {
   timestamp: number;
   status: 'PENDING' | 'COMPLETED';
   total: number;
+  paymentMethod?: 'CARD' | 'CASH' | 'ONLINE';
 }
 
 export interface Order {

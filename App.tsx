@@ -338,7 +338,7 @@ const MenuScreen: React.FC<{
   removeFromCart: (itemId: string) => void;
   getCartTotal: () => number;
   handleSendOrder: () => void;
-  handleRequestBill: () => void;
+  handleRequestBill: (method: 'CARD' | 'CASH' | 'ONLINE') => void;
   orderSuccessMessage: boolean;
   billSuccessMessage: boolean;
   language: Language;
@@ -572,6 +572,7 @@ const MenuScreen: React.FC<{
                   fullWidth
                   className="bg-black text-white hover:bg-slate-800 shadow-xl shadow-black/20 py-4 relative overflow-hidden"
                   onClick={() => {
+                    handleRequestBill('ONLINE');
                     alert("Redirigiendo a pasarela de pago (Stripe)...");
                   }}
                 >
@@ -583,13 +584,23 @@ const MenuScreen: React.FC<{
                 
                 <Button
                   fullWidth
-                  variant="outline"
-                  className="py-4 border-slate-200 text-slate-600 hover:bg-slate-50"
-                  onClick={() => handleRequestBill()}
+                  className="bg-blue-800 text-white hover:bg-blue-900 shadow-xl shadow-blue-800/20 py-4 relative overflow-hidden"
+                  onClick={() => handleRequestBill('CARD')}
                 >
-                  <span className="flex items-center gap-2">
-                    <CheckCircle size={18} />
-                    {t.ask_bill || 'PEDIR A CAMARERO'}
+                  <span className="flex items-center justify-center gap-2 relative z-10 w-full">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-5 h-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                    Pagar con tarjeta
+                  </span>
+                </Button>
+
+                <Button
+                  fullWidth
+                  className="bg-emerald-700 text-white hover:bg-emerald-800 shadow-xl shadow-emerald-700/20 py-4 relative overflow-hidden"
+                  onClick={() => handleRequestBill('CASH')}
+                >
+                  <span className="flex items-center justify-center gap-2 relative z-10 w-full">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-5 h-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10h12"></path><path d="M4 14h9"></path><path d="M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2"></path></svg>
+                    Pagar en efectivo
                   </span>
                 </Button>
              </div>
@@ -1288,6 +1299,11 @@ const AdminDashboardScreen: React.FC<{
                                                   <div>
                                                       <h3 className="text-2xl font-bold text-slate-900 mb-1">Mesa {bill.tableNumber}</h3>
                                                       <p className="text-slate-500 text-xs font-mono uppercase tracking-wider">{bill.location}</p>
+                                                      {bill.paymentMethod && (
+                                                          <p className="text-blue-600 font-bold text-xs mt-1 uppercase">
+                                                              PAGO: {bill.paymentMethod === 'ONLINE' ? 'APPLE PAY / TARJETA VIRTUAL' : bill.paymentMethod === 'CARD' ? 'DATÁFONO' : 'EFECTIVO'}
+                                                          </p>
+                                                      )}
                                                   </div>
                                                   <span className="bg-amber-100 text-amber-600 text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest border border-amber-200">
                                                       Pendiente
@@ -1476,7 +1492,7 @@ const App: React.FC = () => {
     sendWebhook(WEBHOOK_URLS.NEW_ORDER, newOrder);
   };
 
-  const handleRequestBill = async () => {
+  const handleRequestBill = async (method: 'CARD' | 'CASH' | 'ONLINE') => {
     const newBillId = Math.random().toString(36).substr(2, 9);
     
     // Calculate total from table orders
@@ -1490,7 +1506,8 @@ const App: React.FC = () => {
       location: selectedLocation || 'DESCONOCIDO',
       timestamp: Date.now(),
       status: 'PENDING',
-      total: tableTotal
+      total: tableTotal,
+      paymentMethod: method
     };
 
     try {
