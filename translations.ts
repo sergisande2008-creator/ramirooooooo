@@ -42,7 +42,12 @@ export const UI_TRANSLATIONS = {
     order_details: 'DETALLES DE LA COMANDA',
     pax: 'PAX',
     ask_bill: 'PEDIR CUENTA',
-    the_bills: 'LAS CUENTAS'
+    the_bills: 'LAS CUENTAS',
+    bill_success_title: 'Muchas gracias por venir, ¡nos vemos pronto!',
+    bill_success_desc: 'Ahora mismo le atenderán en su mesa con la cuenta.',
+    ask_bill_label: 'LA CUENTA',
+    table_service: 'ATENCIÓN EN MESA',
+    ask_bill_desc: '¿Todo listo? Pide la cuenta y nuestro personal se acercará a tu mesa.'
   },
   ca: {
     enter_as_diner: 'ENTRAR COM A COMENSAL',
@@ -85,7 +90,12 @@ export const UI_TRANSLATIONS = {
     order_details: 'DETALLS DE LA COMANDA',
     pax: 'PAX',
     ask_bill: 'DEMANAR EL COMPTE',
-    the_bills: 'ELS COMPTES'
+    the_bills: 'ELS COMPTES',
+    bill_success_title: 'Moltes gràcies per venir, ens veiem aviat!',
+    bill_success_desc: 'Ara mateix l\'atendran a la seva taula amb el compte.',
+    ask_bill_label: 'EL COMPTE',
+    table_service: 'ATENCIÓ A TAULA',
+    ask_bill_desc: 'Tot a punt? Demana el compte i el nostre personal s\'acostarà a la teva taula.'
   },
   en: {
     enter_as_diner: 'ENTER AS DINER',
@@ -128,7 +138,12 @@ export const UI_TRANSLATIONS = {
     order_details: 'ORDER DETAILS',
     pax: 'PAX',
     ask_bill: 'ASK FOR BILL',
-    the_bills: 'THE BILLS'
+    the_bills: 'THE BILLS',
+    bill_success_title: 'Thank you for coming, see you soon!',
+    bill_success_desc: 'They will assist you at your table with the bill right away.',
+    ask_bill_label: 'THE BILL',
+    table_service: 'TABLE SERVICE',
+    ask_bill_desc: 'All done? Ask for the bill and our staff will come to your table.'
   }
 };
 

@@ -245,7 +245,7 @@ const TableSelectionScreen: React.FC<{
 
     <div className="flex-1 flex flex-col items-center">
       <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">{t.table_label}</h2>
-      <p className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-12">{t.zone} {selectedLocation}</p>
+      <p className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-12">{t.zone} {selectedLocation === 'DENTRO' ? t.inside : t.outside}</p>
 
       <div className="grid grid-cols-2 gap-6 w-full max-w-sm">
         {TABLES.map((table) => (
@@ -288,7 +288,7 @@ const GuestSelectionScreen: React.FC<{
 
     <div className="flex-1 flex flex-col items-center justify-center -mt-20">
       <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">{t.guests}</h2>
-      <p className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-16">{selectedLocation} - {t.table} {selectedTable}</p>
+      <p className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-16">{selectedLocation === 'DENTRO' ? t.inside : t.outside} - {t.table} {selectedTable}</p>
 
       <div className="flex items-center gap-12 mb-20">
         <button 
@@ -340,6 +340,7 @@ const MenuScreen: React.FC<{
   handleSendOrder: () => void;
   handleRequestBill: () => void;
   orderSuccessMessage: boolean;
+  billSuccessMessage: boolean;
   language: Language;
   menuItems: MenuItem[];
   hasActiveOrders: boolean;
@@ -347,7 +348,7 @@ const MenuScreen: React.FC<{
   selectedLocation, selectedTable, guestCount, setCurrentScreen,
   activeTab, setActiveTab, cart, selectedCategory, setSelectedCategory,
   getItemQuantity, addToCart, removeFromCart, getCartTotal, handleSendOrder,
-  handleRequestBill, orderSuccessMessage, language, menuItems, hasActiveOrders
+  handleRequestBill, orderSuccessMessage, billSuccessMessage, language, menuItems, hasActiveOrders
 }) => {
   const t = UI_TRANSLATIONS[language];
   return (
@@ -499,8 +500,8 @@ const MenuScreen: React.FC<{
       
       {activeTab === 'order' && (
         <div className="flex flex-col items-center justify-center h-full pt-10">
-          <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">{t.your_order}</h2>
-          <p className="text-blue-600 font-bold text-xs tracking-widest uppercase mb-12">{t.order_details}</p>
+          <h2 className="text-4xl font-serif font-black text-slate-900 mb-2 text-center">{t.your_order}</h2>
+          <p className="text-blue-600 font-bold text-xs tracking-widest uppercase mb-12 text-center">{t.order_details}</p>
           
           {cart.length === 0 ? (
             <div className="flex flex-col items-center opacity-50 mt-10">
@@ -553,15 +554,15 @@ const MenuScreen: React.FC<{
 
       {activeTab === 'bill' && (
         <div className="flex flex-col items-center justify-center h-full pt-10">
-          <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">{t.ask_bill || 'LA CUENTA'}</h2>
-          <p className="text-blue-600 font-bold text-xs tracking-widest uppercase mb-12">ATENCIÓN EN MESA</p>
+          <h2 className="text-4xl font-serif font-black text-slate-900 mb-2 text-center">{t.ask_bill_label || 'LA CUENTA'}</h2>
+          <p className="text-blue-600 font-bold text-xs tracking-widest uppercase mb-12 text-center">{t.table_service}</p>
           
           <div className="flex flex-col items-center opacity-80 mt-10 max-w-sm text-center">
             <div className="w-24 h-24 bg-slate-200 rounded-full flex items-center justify-center mb-6 shadow-inner">
               <span className="text-4xl">👋</span>
             </div>
             <p className="text-slate-500 font-medium text-sm mb-8">
-              ¿Todo listo? Pide la cuenta y nuestro personal se acercará a tu mesa.
+              {t.ask_bill_desc}
             </p>
             <Button
               className="bg-blue-600 text-white shadow-xl shadow-blue-600/20"
@@ -589,6 +590,20 @@ const MenuScreen: React.FC<{
           <h3 className="font-serif font-black text-2xl text-slate-900 mb-4">{t.confirm_order}</h3>
           <p className="text-slate-500 leading-relaxed text-sm font-medium">
             {t.prepare_order}
+          </p>
+        </div>
+      </div>
+    )}
+
+    {billSuccessMessage && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="bg-white rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl flex flex-col items-center animate-in zoom-in-95 duration-500">
+          <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6">
+            <Receipt className="text-blue-500 w-10 h-10" />
+          </div>
+          <h3 className="font-serif font-black text-2xl text-slate-900 mb-4">{t.bill_success_title}</h3>
+          <p className="text-slate-500 leading-relaxed text-sm font-medium">
+            {t.bill_success_desc}
           </p>
         </div>
       </div>
@@ -1311,6 +1326,7 @@ const App: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<MenuCategory>(MenuCategory.ALL);
   const [chefPin, setChefPin] = useState<string>('');
   const [orderSuccessMessage, setOrderSuccessMessage] = useState<boolean>(false);
+  const [billSuccessMessage, setBillSuccessMessage] = useState<boolean>(false);
   const [language, setLanguage] = useState<Language>('es');
   
   // Kitchen/Orders State
@@ -1462,7 +1478,10 @@ const App: React.FC = () => {
 
     try {
       await setDoc(doc(db, 'bills', newBillId), newBill);
-      alert('Muchas gracias por venir nos vemos pronto, ahora mismo le atenderan');
+      setBillSuccessMessage(true);
+      setTimeout(() => {
+        setBillSuccessMessage(false);
+      }, 10000);
     } catch(error) {
       handleFirestoreError(error, OperationType.WRITE, 'bills');
     }
@@ -1581,6 +1600,7 @@ const App: React.FC = () => {
           selectedTable={selectedTable}
           guestCount={guestCount}
           orderSuccessMessage={orderSuccessMessage}
+          billSuccessMessage={billSuccessMessage}
           language={language}
           menuItems={menuItems}
           hasActiveOrders={orders.some(o => o.location === selectedLocation && o.tableNumber === selectedTable && !o.paid)}
