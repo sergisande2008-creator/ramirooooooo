@@ -41,6 +41,7 @@ import {
 import { auth, db } from './firebase';
 import { handleFirestoreError, OperationType } from './firebaseUtils';
 import { signInAnonymously } from 'firebase/auth';
+import { Language, UI_TRANSLATIONS, MENU_TRANSLATIONS } from './translations';
 
 // --- CONFIGURATION ---
 
@@ -87,7 +88,11 @@ const sendWebhook = async (url: string, order: Order) => {
 const LandingScreen: React.FC<{
   setCurrentScreen: (s: Screen) => void;
   setChefPin: (s: string) => void;
-}> = ({ setCurrentScreen, setChefPin }) => (
+  language: Language;
+  setLanguage: (l: Language) => void;
+}> = ({ setCurrentScreen, setChefPin, language, setLanguage }) => {
+  const t = UI_TRANSLATIONS[language];
+  return (
   <div className="min-h-screen bg-[#1a160f] flex flex-col items-center justify-center p-6 relative overflow-hidden">
     {/* Fondo sutil */}
     <div className="absolute top-[-20%] left-[-20%] w-[140%] h-[140%] bg-[#f5f2ed]/5 blur-[120px] pointer-events-none" />
@@ -110,8 +115,33 @@ const LandingScreen: React.FC<{
             NEVADA
           </h1>
           <p className="text-[#a39578] text-[11px] font-bold tracking-[0.35em] mb-12">
-            PREMIUM EXPERIENCE
+            {t.premium_experience}
           </p>
+
+          {/* Selector de idioma */}
+          <div className="flex gap-4 mb-8">
+            <button 
+              onClick={() => setLanguage('es')}
+              className={`flex flex-col items-center gap-2 transition-all ${language === 'es' ? 'opacity-100 scale-110' : 'opacity-40 hover:opacity-80'}`}
+            >
+              <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT3hzt4_aWEXUGyNM0_d6L7ipRcV3E5dd2Pbg&s" alt="Español" className="w-8 h-6 object-cover rounded-sm shadow-sm" />
+              <span className="text-[#f5f2ed] text-[8px] font-bold uppercase tracking-wider">Español</span>
+            </button>
+            <button 
+              onClick={() => setLanguage('ca')}
+              className={`flex flex-col items-center gap-2 transition-all ${language === 'ca' ? 'opacity-100 scale-110' : 'opacity-40 hover:opacity-80'}`}
+            >
+              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Flag_of_Catalonia.svg/330px-Flag_of_Catalonia.svg.png" alt="Català" className="w-8 h-6 object-cover rounded-sm shadow-sm" />
+              <span className="text-[#f5f2ed] text-[8px] font-bold uppercase tracking-wider">Català</span>
+            </button>
+            <button 
+              onClick={() => setLanguage('en')}
+              className={`flex flex-col items-center gap-2 transition-all ${language === 'en' ? 'opacity-100 scale-110' : 'opacity-40 hover:opacity-80'}`}
+            >
+              <img src="https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcTAMcQflmNx6bt0zdTX1GlMwMlxBA09nrhgpbbhLn1LskueEVPkdqPLeZw3n_ujPzVVRiavP4R9JyVnxIasnvrmELvrMYQ7flVuo1pmOK6x3P7VumQfoGEbTeM2K5-8wZrJ1hCdgjwx9g&usqp=CAc" alt="English" className="w-8 h-6 object-cover rounded-sm shadow-sm" />
+              <span className="text-[#f5f2ed] text-[8px] font-bold uppercase tracking-wider">English</span>
+            </button>
+          </div>
 
           {/* Botones */}
           <div className="w-full space-y-3">
@@ -119,7 +149,7 @@ const LandingScreen: React.FC<{
               onClick={() => setCurrentScreen(Screen.LOCATION_SELECTION)} 
               className="w-full bg-[#1a160f] text-[#f5f2ed] border border-[#332c1e] h-14 rounded-xl text-[13px] font-bold uppercase tracking-widest hover:bg-[#332c1e] transition-all duration-300 flex items-center justify-center"
             >
-              ENTRAR COMO COMENSAL
+              {t.enter_as_diner}
             </button>
            </div>
        </div>
@@ -132,12 +162,16 @@ const LandingScreen: React.FC<{
     </button>
   </div>
 );
+};
 
 // 2. Location Selection
 const LocationSelectionScreen: React.FC<{
   setCurrentScreen: (s: Screen) => void;
   setSelectedLocation: (l: 'DENTRO' | 'FUERA') => void;
-}> = ({ setCurrentScreen, setSelectedLocation }) => (
+  language: Language;
+}> = ({ setCurrentScreen, setSelectedLocation, language }) => {
+  const t = UI_TRANSLATIONS[language];
+  return (
   <div className="min-h-screen bg-slate-50 flex flex-col p-6">
     <div className="flex items-center mb-8 pt-4">
       <button onClick={() => setCurrentScreen(Screen.LANDING)} className="p-2 -ml-2 text-slate-400 hover:text-slate-900 transition-colors">
@@ -146,8 +180,8 @@ const LocationSelectionScreen: React.FC<{
     </div>
 
     <div className="flex-1 flex flex-col items-center">
-      <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">Ubicación</h2>
-      <p className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-12">¿DÓNDE TE SIENTAS?</p>
+      <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">{t.location}</h2>
+      <p className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-12">{t.where_to_sit}</p>
 
       <div className="grid grid-cols-1 gap-6 w-full max-w-sm">
         <button
@@ -161,8 +195,8 @@ const LocationSelectionScreen: React.FC<{
              <Home size={32} />
           </div>
           <div className="text-left">
-              <span className="block text-2xl font-black text-slate-900">DENTRO</span>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Salón Interior</span>
+              <span className="block text-2xl font-black text-slate-900">{t.inside}</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t.inside_desc}</span>
           </div>
         </button>
 
@@ -177,21 +211,25 @@ const LocationSelectionScreen: React.FC<{
              <Sun size={32} />
           </div>
           <div className="text-left">
-              <span className="block text-2xl font-black text-slate-900">FUERA</span>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Terraza</span>
+              <span className="block text-2xl font-black text-slate-900">{t.outside}</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t.outside_desc}</span>
           </div>
         </button>
       </div>
     </div>
   </div>
 );
+};
 
 // 3. Table Selection
 const TableSelectionScreen: React.FC<{
   setCurrentScreen: (s: Screen) => void;
   setSelectedTable: (t: string) => void;
   selectedLocation: string | null;
-}> = ({ setCurrentScreen, setSelectedTable, selectedLocation }) => (
+  language: Language;
+}> = ({ setCurrentScreen, setSelectedTable, selectedLocation, language }) => {
+  const t = UI_TRANSLATIONS[language];
+  return (
   <div className="min-h-screen bg-slate-50 flex flex-col p-6">
     <div className="flex items-center mb-8 pt-4">
       <button onClick={() => setCurrentScreen(Screen.LOCATION_SELECTION)} className="p-2 -ml-2 text-slate-400 hover:text-slate-900 transition-colors">
@@ -200,8 +238,8 @@ const TableSelectionScreen: React.FC<{
     </div>
 
     <div className="flex-1 flex flex-col items-center">
-      <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">Mesa</h2>
-      <p className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-12">ZONA {selectedLocation}</p>
+      <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">{t.table_label}</h2>
+      <p className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-12">{t.zone} {selectedLocation}</p>
 
       <div className="grid grid-cols-2 gap-6 w-full max-w-sm">
         {TABLES.map((table) => (
@@ -214,7 +252,7 @@ const TableSelectionScreen: React.FC<{
             className="aspect-square bg-white rounded-3xl flex flex-col items-center justify-center shadow-sm border border-slate-100 hover:border-blue-500 hover:shadow-md active:scale-95 transition-all group relative overflow-hidden"
           >
             <div className="absolute inset-0 bg-blue-50 opacity-0 group-hover:opacity-100 transition-opacity" />
-            <span className="relative z-10 text-slate-300 text-xs font-bold mb-2 group-hover:text-blue-400">Nº</span>
+            <span className="relative z-10 text-slate-300 text-xs font-bold mb-2 group-hover:text-blue-400">{t.number}</span>
             <span className="relative z-10 text-6xl font-black text-slate-900 group-hover:text-blue-600 transition-colors">{table}</span>
           </button>
         ))}
@@ -222,6 +260,7 @@ const TableSelectionScreen: React.FC<{
     </div>
   </div>
 );
+};
 
 // 4. Guest Selection
 const GuestSelectionScreen: React.FC<{
@@ -230,7 +269,10 @@ const GuestSelectionScreen: React.FC<{
   setGuestCount: (n: number) => void;
   selectedLocation: string | null;
   selectedTable: string | null;
-}> = ({ setCurrentScreen, guestCount, setGuestCount, selectedLocation, selectedTable }) => (
+  language: Language;
+}> = ({ setCurrentScreen, guestCount, setGuestCount, selectedLocation, selectedTable, language }) => {
+  const t = UI_TRANSLATIONS[language];
+  return (
   <div className="min-h-screen bg-slate-50 flex flex-col p-6">
     <div className="flex items-center mb-8 pt-4 relative z-20">
       <button onClick={() => setCurrentScreen(Screen.TABLE_SELECTION)} className="p-2 -ml-2 text-slate-400 hover:text-slate-900 transition-colors">
@@ -239,8 +281,8 @@ const GuestSelectionScreen: React.FC<{
     </div>
 
     <div className="flex-1 flex flex-col items-center justify-center -mt-20">
-      <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">Invitados</h2>
-      <p className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-16">{selectedLocation} - MESA {selectedTable}</p>
+      <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">{t.guests}</h2>
+      <p className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-16">{selectedLocation} - {t.table} {selectedTable}</p>
 
       <div className="flex items-center gap-12 mb-20">
         <button 
@@ -267,11 +309,12 @@ const GuestSelectionScreen: React.FC<{
         className="bg-slate-900 text-white max-w-xs shadow-xl shadow-slate-900/20"
         onClick={() => setCurrentScreen(Screen.MENU)}
       >
-        EMPEZAR
+        {t.start}
       </Button>
     </div>
   </div>
 );
+};
 
 // 5. Menu & Order Screen
 const MenuScreen: React.FC<{
@@ -290,12 +333,15 @@ const MenuScreen: React.FC<{
   getCartTotal: () => number;
   handleSendOrder: () => void;
   orderSuccessMessage: boolean;
+  language: Language;
 }> = ({ 
   selectedLocation, selectedTable, guestCount, setCurrentScreen,
   activeTab, setActiveTab, cart, selectedCategory, setSelectedCategory,
   getItemQuantity, addToCart, removeFromCart, getCartTotal, handleSendOrder,
-  orderSuccessMessage
-}) => (
+  orderSuccessMessage, language
+}) => {
+  const t = UI_TRANSLATIONS[language];
+  return (
   <div className="min-h-screen bg-slate-50 flex flex-col pb-24 relative">
     {/* Header */}
     <header className="bg-white/80 backdrop-blur-lg px-6 pt-12 pb-4 sticky top-0 z-20 border-b border-slate-100">
@@ -307,7 +353,7 @@ const MenuScreen: React.FC<{
           <div>
             <h1 className="font-serif font-black text-slate-900 leading-none text-lg">NEVADA</h1>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">
-              {selectedLocation} {selectedTable} <span className="mx-1 text-slate-300">|</span> {guestCount} PAX
+              {selectedLocation === 'DENTRO' ? t.inside : t.outside} {selectedTable} <span className="mx-1 text-slate-300">|</span> {guestCount} {t.pax}
             </p>
           </div>
         </div>
@@ -322,13 +368,13 @@ const MenuScreen: React.FC<{
           onClick={() => setActiveTab('order')}
           className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${activeTab === 'order' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
         >
-          MI COMANDA {cart.length > 0 && `(${cart.reduce((a, b) => a + b.quantity, 0)})`}
+          {t.your_order} {cart.length > 0 && `(${cart.reduce((a, b) => a + b.quantity, 0)})`}
         </button>
         <button 
           onClick={() => setActiveTab('menu')}
           className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${activeTab === 'menu' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
         >
-          LA CARTA
+          {t.menu}
         </button>
       </div>
     </header>
@@ -339,7 +385,16 @@ const MenuScreen: React.FC<{
         <>
           {/* Filter Pills */}
           <div className="flex gap-3 overflow-x-auto pb-6 no-scrollbar -mx-6 px-6 mb-2">
-            {[MenuCategory.ALL, ...Object.values(MenuCategory).filter(c => c !== MenuCategory.ALL)].map((cat) => (
+            {[MenuCategory.ALL, ...Object.values(MenuCategory).filter(c => c !== MenuCategory.ALL)].map((cat) => {
+              const catLabels: Record<string, string> = {
+                  [MenuCategory.ALL]: t.all,
+                  [MenuCategory.STARTERS]: t.starters,
+                  [MenuCategory.MAINS]: t.mains,
+                  [MenuCategory.SECONDS]: t.seconds,
+                  [MenuCategory.DESSERTS]: t.desserts,
+                  [MenuCategory.DRINKS]: t.drinks,
+              };
+              return (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
@@ -349,9 +404,9 @@ const MenuScreen: React.FC<{
                     : 'bg-white text-slate-400 hover:text-slate-600 border border-slate-100'
                 }`}
               >
-                {cat}
+                {catLabels[cat] || cat}
               </button>
-            ))}
+            )})}
           </div>
 
           {/* Menu List */}
@@ -360,13 +415,17 @@ const MenuScreen: React.FC<{
               .filter(item => selectedCategory === MenuCategory.ALL || item.category === selectedCategory)
               .map((item) => {
                 const qty = getItemQuantity(item.id);
+                // Translate
+                const translatedItem = MENU_TRANSLATIONS[item.id]?.[language] || item;
+                const { name, description } = translatedItem;
+
                 return (
                   <div key={item.id} className="bg-white p-3 rounded-[24px] shadow-sm border border-slate-100 flex gap-4 items-center group active:scale-[0.98] transition-transform duration-200 relative overflow-hidden">
                     
-                    <img src={item.image} alt={item.name} className="w-20 h-20 rounded-2xl object-cover shadow-md" />
+                    <img src={item.image} alt={name} className="w-20 h-20 rounded-2xl object-cover shadow-md" />
                     <div className="flex-1 min-w-0 py-1">
-                      <h3 className="font-serif font-bold text-slate-900 text-base mb-1 leading-tight">{item.name}</h3>
-                      <p className="text-slate-400 text-xs line-clamp-2 mb-3 leading-relaxed">{item.description}</p>
+                      <h3 className="font-serif font-bold text-slate-900 text-base mb-1 leading-tight">{name}</h3>
+                      <p className="text-slate-400 text-xs line-clamp-2 mb-3 leading-relaxed">{description}</p>
                       <div className="flex items-center justify-between">
                         <span className="font-black text-slate-900 text-sm">{item.price.toFixed(2)}€</span>
                         
@@ -375,7 +434,7 @@ const MenuScreen: React.FC<{
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                addToCart(item);
+                                addToCart(item); // Note: keeping original item structure for cart mechanics
                               }}
                               className="w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white"
                             >
@@ -413,26 +472,28 @@ const MenuScreen: React.FC<{
         </>
       ) : (
         <div className="flex flex-col items-center justify-center h-full pt-10">
-          <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">Mi Comanda</h2>
-          <p className="text-blue-600 font-bold text-xs tracking-widest uppercase mb-12">DETALLES DE LA COMANDA</p>
+          <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">{t.your_order}</h2>
+          <p className="text-blue-600 font-bold text-xs tracking-widest uppercase mb-12">{t.order_details}</p>
           
           {cart.length === 0 ? (
             <div className="flex flex-col items-center opacity-50 mt-10">
               <div className="w-24 h-24 bg-slate-200 rounded-full flex items-center justify-center mb-6">
                 <ShoppingBasket className="text-slate-400 w-10 h-10" />
               </div>
-              <p className="font-bold text-slate-400 text-sm uppercase tracking-widest">Comanda Vacía</p>
-              <p className="text-slate-300 text-xs mt-2">Añade productos desde la carta</p>
+              <p className="font-bold text-slate-400 text-sm uppercase tracking-widest">{t.empty_cart}</p>
+              <p className="text-slate-300 text-xs mt-2">{t.empty_cart_desc}</p>
             </div>
           ) : (
             <div className="w-full space-y-4">
-              {cart.map((item, idx) => (
+              {cart.map((item, idx) => {
+                const translatedName = MENU_TRANSLATIONS[item.id]?.[language]?.name || item.name;
+                return (
                 <div key={idx} className="bg-white p-4 rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm">
                    <div className="flex items-center gap-4">
                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 font-bold flex items-center justify-center text-xs">
                        x{item.quantity}
                      </div>
-                     <h4 className="font-bold text-slate-900 text-sm">{item.name}</h4>
+                     <h4 className="font-bold text-slate-900 text-sm">{translatedName}</h4>
                    </div>
                    <div className="flex items-center gap-4">
                         <span className="font-bold text-slate-900">{(item.price * item.quantity).toFixed(2)}€</span>
@@ -444,10 +505,10 @@ const MenuScreen: React.FC<{
                         </button>
                    </div>
                 </div>
-              ))}
+              )})}
               <div className="pt-8 border-t border-slate-200 mt-8">
                   <div className="flex justify-between items-end mb-6">
-                      <span className="text-slate-400 font-bold text-sm">Total a pagar</span>
+                      <span className="text-slate-400 font-bold text-sm">{t.total_to_pay}</span>
                       <span className="text-4xl font-serif font-black text-slate-900">{getCartTotal().toFixed(2)}€</span>
                   </div>
                   <Button 
@@ -455,7 +516,7 @@ const MenuScreen: React.FC<{
                       className="bg-slate-900 text-white shadow-xl shadow-slate-900/20"
                       onClick={handleSendOrder}
                   >
-                      ENVIAR A COCINA
+                      {t.send_order}
                   </Button>
               </div>
             </div>
@@ -470,9 +531,9 @@ const MenuScreen: React.FC<{
           <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mb-6">
             <CheckCircle className="text-green-500 w-10 h-10" />
           </div>
-          <h3 className="font-serif font-black text-2xl text-slate-900 mb-4">¡Comanda Enviada!</h3>
+          <h3 className="font-serif font-black text-2xl text-slate-900 mb-4">{t.confirm_order}</h3>
           <p className="text-slate-500 leading-relaxed text-sm font-medium">
-            Muchas gracias por entregar su comanda, esperamos que disfrutes de esta gran experiencia culinaria.
+            {t.prepare_order}
           </p>
         </div>
       </div>
@@ -480,6 +541,7 @@ const MenuScreen: React.FC<{
 
   </div>
 );
+};
 
 // 7. Chef Login Screen
 const ChefLoginScreen: React.FC<{
@@ -841,6 +903,7 @@ const App: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<MenuCategory>(MenuCategory.ALL);
   const [chefPin, setChefPin] = useState<string>('');
   const [orderSuccessMessage, setOrderSuccessMessage] = useState<boolean>(false);
+  const [language, setLanguage] = useState<Language>('es');
   
   // Kitchen/Orders State
   const [orders, setOrders] = useState<Order[]>([]);
@@ -974,16 +1037,17 @@ const App: React.FC = () => {
   return (
     <div className="antialiased font-sans text-slate-900 select-none bg-slate-50">
       {currentScreen === Screen.LANDING && (
-        <LandingScreen setCurrentScreen={setCurrentScreen} setChefPin={setChefPin} />
+        <LandingScreen setCurrentScreen={setCurrentScreen} setChefPin={setChefPin} language={language} setLanguage={setLanguage} />
       )}
       {currentScreen === Screen.LOCATION_SELECTION && (
-        <LocationSelectionScreen setCurrentScreen={setCurrentScreen} setSelectedLocation={setSelectedLocation} />
+        <LocationSelectionScreen setCurrentScreen={setCurrentScreen} setSelectedLocation={setSelectedLocation} language={language} />
       )}
       {currentScreen === Screen.TABLE_SELECTION && (
         <TableSelectionScreen 
           setCurrentScreen={setCurrentScreen} 
           setSelectedTable={setSelectedTable} 
           selectedLocation={selectedLocation} 
+          language={language}
         />
       )}
       {currentScreen === Screen.GUEST_SELECTION && (
@@ -993,6 +1057,7 @@ const App: React.FC = () => {
           setGuestCount={setGuestCount} 
           selectedLocation={selectedLocation}
           selectedTable={selectedTable}
+          language={language}
         />
       )}
       {currentScreen === Screen.MENU && (
@@ -1012,6 +1077,7 @@ const App: React.FC = () => {
           selectedTable={selectedTable}
           guestCount={guestCount}
           orderSuccessMessage={orderSuccessMessage}
+          language={language}
         />
       )}
       {currentScreen === Screen.CHEF_LOGIN && (
