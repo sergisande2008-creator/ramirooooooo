@@ -39,6 +39,16 @@ export enum OrderStatus {
   COMPLETED = 'COMPLETADO'
 }
 
+export interface BillRequest {
+  id: string;
+  table: string;
+  tableNumber: string;
+  location: string;
+  timestamp: number;
+  status: 'PENDING' | 'COMPLETED';
+  total: number;
+}
+
 export interface Order {
   id: string;
   table: string;        // Display string (e.g. "DENTRO 01")
@@ -51,4 +61,5 @@ export interface Order {
   acceptedTimestamp?: number; // Kitchen acceptance time
   completedTimestamp?: number; // Kitchen completion time
   total: number;
+  paid?: boolean;
 }

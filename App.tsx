@@ -1,6 +1,6 @@
 // ... (Keep existing imports)
 import React, { useState, useEffect, useRef } from 'react';
-import { Screen, MenuCategory, MenuItem, CartItem, Order, OrderStatus } from './types';
+import { Screen, MenuCategory, MenuItem, CartItem, Order, OrderStatus, BillRequest } from './types';
 import { MENU_ITEMS, TABLES } from './constants';
 // Import from root ./Button
 import { Button } from './Button';
@@ -15,6 +15,7 @@ import {
   Search,
   ArrowRight,
   ShoppingBasket,
+  Receipt,
   Send,
   X,
   CheckCircle,
@@ -327,8 +328,8 @@ const MenuScreen: React.FC<{
   selectedTable: string | null;
   guestCount: number;
   setCurrentScreen: (s: Screen) => void;
-  activeTab: 'menu' | 'order';
-  setActiveTab: (t: 'menu' | 'order') => void;
+  activeTab: 'menu' | 'order' | 'bill';
+  setActiveTab: (t: 'menu' | 'order' | 'bill') => void;
   cart: CartItem[];
   selectedCategory: MenuCategory;
   setSelectedCategory: (c: MenuCategory) => void;
@@ -337,14 +338,16 @@ const MenuScreen: React.FC<{
   removeFromCart: (itemId: string) => void;
   getCartTotal: () => number;
   handleSendOrder: () => void;
+  handleRequestBill: () => void;
   orderSuccessMessage: boolean;
   language: Language;
   menuItems: MenuItem[];
+  hasActiveOrders: boolean;
 }> = ({ 
   selectedLocation, selectedTable, guestCount, setCurrentScreen,
   activeTab, setActiveTab, cart, selectedCategory, setSelectedCategory,
   getItemQuantity, addToCart, removeFromCart, getCartTotal, handleSendOrder,
-  orderSuccessMessage, language, menuItems
+  handleRequestBill, orderSuccessMessage, language, menuItems, hasActiveOrders
 }) => {
   const t = UI_TRANSLATIONS[language];
   return (
@@ -372,22 +375,30 @@ const MenuScreen: React.FC<{
       <div className="flex bg-slate-100 p-1.5 rounded-2xl">
         <button 
           onClick={() => setActiveTab('order')}
-          className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${activeTab === 'order' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+          className={`flex-1 py-2.5 text-[10px] sm:text-xs font-bold rounded-xl transition-all ${activeTab === 'order' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
         >
           {t.your_order} {cart.length > 0 && `(${cart.reduce((a, b) => a + b.quantity, 0)})`}
         </button>
         <button 
           onClick={() => setActiveTab('menu')}
-          className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${activeTab === 'menu' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+          className={`flex-1 py-2.5 text-[10px] sm:text-xs font-bold rounded-xl transition-all ${activeTab === 'menu' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
         >
           {t.menu}
         </button>
+        {hasActiveOrders && (
+          <button 
+            onClick={() => setActiveTab('bill')}
+            className={`flex-1 py-2.5 text-[10px] sm:text-xs font-bold rounded-xl transition-all ${activeTab === 'bill' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            {t.ask_bill || 'CUENTA'}
+          </button>
+        )}
       </div>
     </header>
 
     {/* Content */}
     <div className="flex-1 p-6">
-      {activeTab === 'menu' ? (
+      {activeTab === 'menu' && (
         <>
           {/* Filter Pills */}
           <div className="flex gap-3 overflow-x-auto pb-6 no-scrollbar -mx-6 px-6 mb-2">
@@ -484,7 +495,9 @@ const MenuScreen: React.FC<{
               })}
           </div>
         </>
-      ) : (
+      )}
+      
+      {activeTab === 'order' && (
         <div className="flex flex-col items-center justify-center h-full pt-10">
           <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">{t.your_order}</h2>
           <p className="text-blue-600 font-bold text-xs tracking-widest uppercase mb-12">{t.order_details}</p>
@@ -535,6 +548,34 @@ const MenuScreen: React.FC<{
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {activeTab === 'bill' && (
+        <div className="flex flex-col items-center justify-center h-full pt-10">
+          <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">{t.ask_bill || 'LA CUENTA'}</h2>
+          <p className="text-blue-600 font-bold text-xs tracking-widest uppercase mb-12">ATENCIÓN EN MESA</p>
+          
+          <div className="flex flex-col items-center opacity-80 mt-10 max-w-sm text-center">
+            <div className="w-24 h-24 bg-slate-200 rounded-full flex items-center justify-center mb-6 shadow-inner">
+              <span className="text-4xl">👋</span>
+            </div>
+            <p className="text-slate-500 font-medium text-sm mb-8">
+              ¿Todo listo? Pide la cuenta y nuestro personal se acercará a tu mesa.
+            </p>
+            <Button
+              className="bg-blue-600 text-white shadow-xl shadow-blue-600/20"
+              onClick={() => {
+                handleRequestBill();
+                // We'll leave them on this tab, they have an alert.
+              }}
+            >
+              <span className="flex items-center gap-2">
+                <CheckCircle size={18} />
+                {t.ask_bill || 'PEDIR LA CUENTA'}
+              </span>
+            </Button>
+          </div>
         </div>
       )}
     </div>
@@ -636,6 +677,12 @@ const KitchenDashboardScreen: React.FC<{
   updateOrderStatus: (id: string, s: OrderStatus) => void;
 }> = ({ setCurrentScreen, orders, updateOrderStatus }) => {
   const activeOrders = orders.filter(o => o.status !== OrderStatus.COMPLETED);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
       <div className="min-h-screen bg-[#111111] text-white p-6">
@@ -646,17 +693,27 @@ const KitchenDashboardScreen: React.FC<{
                       {activeOrders.length} TICKETS ACTIVOS
                   </p>
               </div>
-              <button
-                  onClick={() => setCurrentScreen(window.location.pathname.startsWith('/cocina') ? Screen.KITCHEN_DASHBOARD : Screen.LANDING)}
-                  className="p-3 bg-white/5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                  <Lock size={20} />
-              </button>
+              <div className="flex items-center gap-4">
+                  <div className="text-right hidden sm:block mr-2">
+                      <div className="text-xl font-medium tracking-wide text-slate-300">
+                          {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                  </div>
+                  <button
+                      onClick={() => setCurrentScreen(window.location.pathname.startsWith('/cocina') ? Screen.KITCHEN_DASHBOARD : Screen.LANDING)}
+                      className="p-3 bg-white/5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                      <Lock size={20} />
+                  </button>
+              </div>
           </header>
 
           {activeOrders.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[60vh] text-slate-600">
-                  <CheckCircle size={64} className="mb-4 opacity-20" />
+                  <div className="text-8xl font-light text-slate-800 mb-8 tracking-tighter">
+                      {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}<span className="text-4xl text-slate-800/50">{currentTime.toLocaleTimeString([], { second: '2-digit' }).replace(/[^0-9]/g, '')}</span>
+                  </div>
+                  <CheckCircle size={48} className="mb-4 opacity-20" />
                   <p className="uppercase tracking-widest font-bold text-sm">Todo en orden chef</p>
               </div>
           ) : (
@@ -752,8 +809,10 @@ const AdminDashboardScreen: React.FC<{
   clearOrders: () => void;
   menuItems: MenuItem[];
   updateMenuItem: (item: MenuItem) => void;
-}> = ({ setCurrentScreen, orders, updateOrderStatus, clearOrders, menuItems, updateMenuItem }) => {
-  const [activeTab, setActiveTab] = useState<'INICIO' | 'RESUMENES' | 'CARTA'>('INICIO');
+  billRequests: BillRequest[];
+  updateBillStatus: (id: string, s: 'PENDING' | 'COMPLETED') => void;
+}> = ({ setCurrentScreen, orders, updateOrderStatus, clearOrders, menuItems, updateMenuItem, billRequests, updateBillStatus }) => {
+  const [activeTab, setActiveTab] = useState<'INICIO' | 'RESUMENES' | 'CARTA' | 'CUENTAS'>('INICIO');
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
   
   // Add state for selected date
@@ -858,6 +917,18 @@ const AdminDashboardScreen: React.FC<{
                  >
                      <Utensils size={18} />
                      Gestión de Carta
+                 </button>
+                 <button 
+                     onClick={() => setActiveTab('CUENTAS')}
+                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm tracking-wide ${activeTab === 'CUENTAS' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                 >
+                     <Receipt size={18} />
+                     Las Cuentas
+                     {billRequests.filter(b => b.status === 'PENDING').length > 0 && (
+                         <span className="ml-auto bg-blue-500 text-white px-2 py-0.5 rounded-full text-[10px]">
+                             {billRequests.filter(b => b.status === 'PENDING').length}
+                         </span>
+                     )}
                  </button>
              </nav>
              <button
@@ -1155,6 +1226,69 @@ const AdminDashboardScreen: React.FC<{
                       </div>
                   </div>
               )}
+              {activeTab === 'CUENTAS' && (
+                  <div className="animate-fade-in pb-12 w-full max-w-4xl mx-auto p-6 md:p-8">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                          <div>
+                              <h2 className="text-3xl font-black text-slate-800 tracking-tight">Las Cuentas</h2>
+                              <p className="text-slate-500 mt-1">Peticiones de cuenta de las mesas en tiempo real.</p>
+                          </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {billRequests.filter(b => b.status === 'PENDING').length === 0 ? (
+                              <div className="col-span-full py-12 flex flex-col items-center justify-center text-slate-400 bg-white rounded-2xl border border-slate-200 border-dashed">
+                                  <Receipt size={48} className="mb-4 opacity-50" />
+                                  <p className="font-medium">No hay peticiones de cuenta pendientes</p>
+                              </div>
+                          ) : (
+                              billRequests
+                                  .filter(b => b.status === 'PENDING')
+                                  .sort((a, b) => a.timestamp - b.timestamp)
+                                  .map(bill => (
+                                      <div key={bill.id} className="bg-white p-6 rounded-2xl shadow-sm border border-amber-200 relative overflow-hidden flex flex-col">
+                                          <div className="absolute top-0 right-0 p-4 opacity-10">
+                                              <Receipt size={64} className="text-amber-500" />
+                                          </div>
+                                          
+                                          <div className="relative z-10 flex-1">
+                                              <div className="flex justify-between items-start mb-4">
+                                                  <div>
+                                                      <h3 className="text-2xl font-bold text-slate-900 mb-1">Mesa {bill.tableNumber}</h3>
+                                                      <p className="text-slate-500 text-xs font-mono uppercase tracking-wider">{bill.location}</p>
+                                                  </div>
+                                                  <span className="bg-amber-100 text-amber-600 text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest border border-amber-200">
+                                                      Pendiente
+                                                  </span>
+                                              </div>
+                                              
+                                              <div className="flex items-center justify-between mb-6">
+                                                  <div className="flex items-center gap-2 text-slate-400 text-sm font-medium">
+                                                      <Clock size={14} />
+                                                      <span>{new Date(bill.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                  </div>
+                                                  <div className="text-xl font-black text-slate-800">
+                                                      {(bill.total || 0).toFixed(2)}€
+                                                  </div>
+                                              </div>
+                                          </div>
+
+                                          <div className="relative z-10 mt-auto">
+                                              <Button 
+                                                  fullWidth 
+                                                  className="bg-blue-600 text-white shadow-xl shadow-blue-600/20 flex items-center justify-center gap-2"
+                                                  onClick={() => updateBillStatus(bill.id, 'COMPLETED')}
+                                              >
+                                                  <CheckCircle size={16} />
+                                                  Marcar como cobrado
+                                              </Button>
+                                          </div>
+                                      </div>
+                                  ))
+                          )}
+                      </div>
+                  </div>
+              )}
           </div>
       </div>
   );
@@ -1182,6 +1316,9 @@ const App: React.FC = () => {
   // Kitchen/Orders State
   const [orders, setOrders] = useState<Order[]>([]);
   
+  // Bill Requests State
+  const [billRequests, setBillRequests] = useState<BillRequest[]>([]);
+  
   // Menu State
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
 
@@ -1198,6 +1335,19 @@ const App: React.FC = () => {
       setOrders(ordersData);
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'orders');
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Sync bill requests
+  useEffect(() => {
+    const q = query(collection(db, 'bills'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const billsData: BillRequest[] = snapshot.docs.map(doc => doc.data() as BillRequest);
+      setBillRequests(billsData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'bills');
     });
 
     return () => unsubscribe();
@@ -1293,6 +1443,31 @@ const App: React.FC = () => {
     sendWebhook(WEBHOOK_URLS.NEW_ORDER, newOrder);
   };
 
+  const handleRequestBill = async () => {
+    const newBillId = Math.random().toString(36).substr(2, 9);
+    
+    // Calculate total from table orders
+    const tableOrders = orders.filter(o => o.location === selectedLocation && o.tableNumber === selectedTable && !o.paid);
+    const tableTotal = tableOrders.reduce((sum, order) => sum + order.total, 0);
+
+    const newBill: BillRequest = {
+      id: newBillId,
+      table: `${selectedLocation} ${selectedTable}`,
+      tableNumber: selectedTable || '00',
+      location: selectedLocation || 'DESCONOCIDO',
+      timestamp: Date.now(),
+      status: 'PENDING',
+      total: tableTotal
+    };
+
+    try {
+      await setDoc(doc(db, 'bills', newBillId), newBill);
+      alert('Muchas gracias por venir nos vemos pronto, ahora mismo le atenderan');
+    } catch(error) {
+      handleFirestoreError(error, OperationType.WRITE, 'bills');
+    }
+  };
+
   const clearOrders = async () => {
     try {
       const qs = await getDocs(collection(db, 'orders'));
@@ -1332,6 +1507,25 @@ const App: React.FC = () => {
       });
     } catch(error) {
       handleFirestoreError(error, OperationType.UPDATE, 'orders');
+    }
+  };
+
+  const updateBillStatus = async (billId: string, newStatus: 'PENDING' | 'COMPLETED') => {
+    try {
+      await updateDoc(doc(db, 'bills', billId), { status: newStatus });
+      if (newStatus === 'COMPLETED') {
+        const bill = billRequests.find(b => b.id === billId);
+        if (bill) {
+          const tableOrders = orders.filter(o => o.location === bill.location && o.tableNumber === bill.tableNumber && !o.paid);
+          // Optional: we can use a batch here since we are doing multiple setDocs, 
+          // but doing individual updates works too if there are few.
+          for (const order of tableOrders) {
+             await updateDoc(doc(db, 'orders', order.id), { paid: true });
+          }
+        }
+      }
+    } catch(error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'bills');
     }
   };
 
@@ -1380,6 +1574,7 @@ const App: React.FC = () => {
           getCartTotal={getCartTotal}
           getItemQuantity={getItemQuantity}
           handleSendOrder={handleSendOrder}
+          handleRequestBill={handleRequestBill}
           selectedCategory={selectedCategory}
           setSelectedCategory={setSelectedCategory}
           selectedLocation={selectedLocation}
@@ -1388,6 +1583,7 @@ const App: React.FC = () => {
           orderSuccessMessage={orderSuccessMessage}
           language={language}
           menuItems={menuItems}
+          hasActiveOrders={orders.some(o => o.location === selectedLocation && o.tableNumber === selectedTable && !o.paid)}
         />
       )}
       {currentScreen === Screen.CHEF_LOGIN && (
@@ -1412,6 +1608,8 @@ const App: React.FC = () => {
           clearOrders={clearOrders}
           menuItems={menuItems}
           updateMenuItem={updateMenuItem}
+          billRequests={billRequests}
+          updateBillStatus={updateBillStatus}
         />
       )}
     </div>

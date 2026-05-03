@@ -40,7 +40,9 @@ export const UI_TRANSLATIONS = {
     back_home: 'VOLVER AL INICIO',
     premium_experience: 'PREMIUM EXPERIENCE',
     order_details: 'DETALLES DE LA COMANDA',
-    pax: 'PAX'
+    pax: 'PAX',
+    ask_bill: 'PEDIR CUENTA',
+    the_bills: 'LAS CUENTAS'
   },
   ca: {
     enter_as_diner: 'ENTRAR COM A COMENSAL',
@@ -81,7 +83,9 @@ export const UI_TRANSLATIONS = {
     back_home: 'TORNAR A L\'INICI',
     premium_experience: 'PREMIUM EXPERIENCE',
     order_details: 'DETALLS DE LA COMANDA',
-    pax: 'PAX'
+    pax: 'PAX',
+    ask_bill: 'DEMANAR EL COMPTE',
+    the_bills: 'ELS COMPTES'
   },
   en: {
     enter_as_diner: 'ENTER AS DINER',
@@ -122,7 +126,9 @@ export const UI_TRANSLATIONS = {
     back_home: 'BACK TO HOME',
     premium_experience: 'PREMIUM EXPERIENCE',
     order_details: 'ORDER DETAILS',
-    pax: 'PAX'
+    pax: 'PAX',
+    ask_bill: 'ASK FOR BILL',
+    the_bills: 'THE BILLS'
   }
 };
 
