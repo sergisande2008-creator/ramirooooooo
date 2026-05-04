@@ -30,6 +30,7 @@ export interface MenuItem {
 
 export interface CartItem extends MenuItem {
   quantity: number;
+  paidQuantity?: number;
 }
 
 export enum OrderStatus {
@@ -48,6 +49,8 @@ export interface BillRequest {
   status: 'PENDING' | 'COMPLETED';
   total: number;
   paymentMethod?: 'CARD' | 'CASH' | 'ONLINE';
+  splitWays?: number;
+  itemsToPay?: { id: string; name: string; quantity: number; price: number }[];
 }
 
 export interface Order {

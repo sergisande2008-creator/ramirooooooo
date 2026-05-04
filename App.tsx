@@ -30,7 +30,9 @@ import {
   TrendingUp,
   ShoppingBag,
   Award,
-  Users
+  Users,
+  Menu,
+  Calculator
 } from 'lucide-react';
 
 import { 
@@ -48,6 +50,7 @@ import { auth, db } from './firebase';
 import { handleFirestoreError, OperationType } from './firebaseUtils';
 import { signInAnonymously } from 'firebase/auth';
 import { Language, UI_TRANSLATIONS, MENU_TRANSLATIONS } from './translations';
+import { CashCalculator } from './CashCalculator';
 
 // --- CONFIGURATION ---
 
@@ -338,20 +341,63 @@ const MenuScreen: React.FC<{
   removeFromCart: (itemId: string) => void;
   getCartTotal: () => number;
   handleSendOrder: () => void;
-  handleRequestBill: (method: 'CARD' | 'CASH' | 'ONLINE') => void;
+  handleRequestBill: (method: 'CARD' | 'CASH' | 'ONLINE', splitWays?: number, itemsToPay?: { id: string; name: string; quantity: number; price: number }[]) => void;
   orderSuccessMessage: boolean;
   billSuccessMessage: boolean;
   language: Language;
   menuItems: MenuItem[];
   hasActiveOrders: boolean;
   orders: Order[];
+  billRequests: BillRequest[];
 }> = ({ 
   selectedLocation, selectedTable, guestCount, setCurrentScreen,
   activeTab, setActiveTab, cart, selectedCategory, setSelectedCategory,
   getItemQuantity, addToCart, removeFromCart, getCartTotal, handleSendOrder,
-  handleRequestBill, orderSuccessMessage, billSuccessMessage, language, menuItems, hasActiveOrders, orders
+  handleRequestBill, orderSuccessMessage, billSuccessMessage, language, menuItems, hasActiveOrders, orders, billRequests
 }) => {
   const t = UI_TRANSLATIONS[language];
+  const [splitMode, setSplitMode] = useState<'ALL' | 'SPLIT' | 'ITEMS'>('ALL');
+  const [selectedSplitItems, setSelectedSplitItems] = useState<Record<string, number>>({});
+
+  const tableOrdersNow = orders.filter(o => o.location === selectedLocation && o.tableNumber === selectedTable && !o.paid);
+  const tablePendingBillsNow = billRequests.filter(b => b.location === selectedLocation && b.tableNumber === selectedTable && b.status === 'PENDING');
+  
+  let isFullyCovered = false;
+  if (tableOrdersNow.length === 0) {
+      isFullyCovered = true;
+  } else if (tablePendingBillsNow.some(b => !b.splitWays && !b.itemsToPay)) {
+      isFullyCovered = true;
+  } else if (tablePendingBillsNow.some(b => b.splitWays === guestCount)) {
+      isFullyCovered = true;
+  } else {
+      const itemsMap: Record<string, number> = {};
+      tableOrdersNow.forEach(order => {
+          order.items.forEach(item => {
+              const unpaidQty = item.quantity - (item.paidQuantity || 0);
+              if (unpaidQty > 0) itemsMap[item.id] = (itemsMap[item.id] || 0) + unpaidQty;
+          });
+      });
+      tablePendingBillsNow.filter(b => b.itemsToPay).forEach(bill => {
+          bill.itemsToPay?.forEach(paidItem => {
+              if (itemsMap[paidItem.id]) {
+                  itemsMap[paidItem.id] -= paidItem.quantity;
+              }
+          });
+      });
+      const unrequestedItemsQty = Object.values(itemsMap).reduce((a,b) => a + Math.max(0, b), 0);
+      if (unrequestedItemsQty <= 0) {
+          isFullyCovered = true;
+      }
+  }
+  const showCuentaTab = tableOrdersNow.length > 0 && !isFullyCovered;
+
+  React.useEffect(() => {
+      // Auto-redirect if they are stuck on bill tab but shouldn't be
+      if (!showCuentaTab && activeTab === 'bill') {
+          setActiveTab('menu');
+      }
+  }, [showCuentaTab, activeTab, setActiveTab]);
+
   return (
   <div className="min-h-screen bg-slate-50 flex flex-col pb-24 relative">
     {/* Header */}
@@ -387,7 +433,7 @@ const MenuScreen: React.FC<{
         >
           {t.menu}
         </button>
-        {hasActiveOrders && (
+        {showCuentaTab && (
           <button 
             onClick={() => setActiveTab('bill')}
             className={`flex-1 py-2.5 text-[10px] sm:text-xs font-bold rounded-xl transition-all ${activeTab === 'bill' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
@@ -445,7 +491,7 @@ const MenuScreen: React.FC<{
                       <img src={item.image} alt={name} className={`w-20 h-20 rounded-2xl object-cover shadow-md ${item.outOfStock ? 'grayscale' : ''}`} />
                       {item.outOfStock && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-2xl">
-                          <span className="text-white text-[10px] font-bold px-2 py-1 bg-red-600 rounded-full">{t.outOfStock || "Agotado"}</span>
+                          <span className="text-white text-[10px] font-bold px-2 py-1 bg-red-600 rounded-full">{t.out_of_stock || "Agotado"}</span>
                         </div>
                       )}
                     </div>
@@ -556,51 +602,236 @@ const MenuScreen: React.FC<{
       {activeTab === 'bill' && (() => {
         const activeOrders = orders.filter(o => o.location === selectedLocation && o.tableNumber === selectedTable && !o.paid);
         const totalAmount = activeOrders.reduce((acc, order) => acc + order.total, 0);
+        
+        const unpaidItemsList = (() => {
+          const itemsMap: Record<string, { id: string, name: string, price: number, unpaidQty: number }> = {};
+          
+          // Add all original unpaid items from orders
+          activeOrders.forEach(order => {
+            order.items.forEach(item => {
+              const unpaidQty = item.quantity - (item.paidQuantity || 0);
+              if (unpaidQty > 0) {
+                if (!itemsMap[item.id]) {
+                  itemsMap[item.id] = { id: item.id, name: item.name, price: item.price, unpaidQty: 0 };
+                }
+                itemsMap[item.id].unpaidQty += unpaidQty;
+              }
+            });
+          });
+
+          // Subtract items that are currently in pending bills
+          const pendingBills = billRequests.filter(b => b.location === selectedLocation && b.tableNumber === selectedTable && b.status === 'PENDING' && b.itemsToPay);
+          pendingBills.forEach(bill => {
+            bill.itemsToPay?.forEach(paidItem => {
+              if (itemsMap[paidItem.id]) {
+                itemsMap[paidItem.id].unpaidQty -= paidItem.quantity;
+                if (itemsMap[paidItem.id].unpaidQty <= 0) {
+                  delete itemsMap[paidItem.id];
+                }
+              }
+            });
+          });
+
+          return Object.values(itemsMap);
+        })();
+
+        const selectedItemsTotal = Object.entries(selectedSplitItems).reduce((sum, [id, qty]) => {
+            const item = unpaidItemsList.find(i => i.id === id);
+            return sum + (item ? item.price * (qty as number) : 0);
+        }, 0);
+
+        const itemsToPayArg = splitMode === 'ITEMS' ? Object.entries(selectedSplitItems).reduce((arr, [id, qty]) => {
+            if ((qty as number) > 0) {
+              const itemInfo = unpaidItemsList.find(i => i.id === id);
+              if (itemInfo) {
+                arr.push({ id, name: itemInfo.name, quantity: qty as number, price: itemInfo.price });
+              }
+            }
+            return arr;
+        }, [] as { id: string; name: string; quantity: number; price: number }[]) : undefined;
+
+        const handleIncrementSplit = (id: string, maxQty: number) => {
+          setSelectedSplitItems(prev => ({
+             ...prev,
+             [id]: Math.min((prev[id] || 0) + 1, maxQty)
+          }));
+        };
+
+        const handleDecrementSplit = (id: string) => {
+          setSelectedSplitItems(prev => {
+             const current = prev[id] || 0;
+             if (current <= 1) {
+                const newState = { ...prev };
+                delete newState[id];
+                return newState;
+             }
+             return { ...prev, [id]: current - 1 };
+          });
+        };
+
+        const pendingBillsForTable = billRequests.filter(b => b.location === selectedLocation && b.tableNumber === selectedTable && b.status === 'PENDING');
+        
+        let isFullyRequested = false;
+        let currentGuestTurn = 1;
+        
+        if (splitMode === 'ALL') {
+             isFullyRequested = pendingBillsForTable.some(b => !b.splitWays && !b.itemsToPay);
+        } else if (splitMode === 'SPLIT') {
+             const splitBills = pendingBillsForTable.filter(b => b.splitWays === guestCount);
+             isFullyRequested = splitBills.length > 0;
+        } else if (splitMode === 'ITEMS') {
+             isFullyRequested = unpaidItemsList.length === 0 && activeOrders.length > 0;
+             const itemBills = pendingBillsForTable.filter(b => b.itemsToPay && b.itemsToPay.length > 0);
+             currentGuestTurn = itemBills.length + 1;
+        }
+
+        if (isFullyRequested || activeOrders.length === 0) {
+            return null;
+        }
+
+        const displayTotal = splitMode === 'SPLIT' && guestCount > 1 
+          ? totalAmount / guestCount 
+          : splitMode === 'ITEMS' ? selectedItemsTotal : totalAmount;
+
         return (
         <div className="flex flex-col items-center justify-center h-full pt-10">
           <h2 className="text-4xl font-serif font-black text-slate-900 mb-2 text-center">{t.ask_bill_label || 'LA CUENTA'}</h2>
-          <p className="text-blue-600 font-bold text-xs tracking-widest uppercase mb-8 text-center">{t.table_service}</p>
+          
+          {splitMode === 'ITEMS' && guestCount > 1 ? (
+             <div className="inline-flex items-center gap-2 mb-6 bg-slate-900 text-white px-4 py-1.5 rounded-full shadow-lg shadow-slate-900/20">
+                <Users size={14} />
+                <span className="text-xs font-bold uppercase tracking-wider">{t.guest_turn} {currentGuestTurn}</span>
+             </div>
+          ) : (
+             <p className="text-blue-600 font-bold text-xs tracking-widest uppercase mb-6 text-center">{t.table_service}</p>
+          )}
           
           <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8">
-             <div className="flex justify-between items-center mb-6">
-                <span className="text-slate-500 font-bold text-sm">TOTAL A PAGAR</span>
-                <span className="text-3xl font-black text-slate-900">{totalAmount.toFixed(2)}€</span>
+             
+             {guestCount > 1 && (
+               <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
+                 <button 
+                   onClick={() => setSplitMode('ALL')}
+                   className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${splitMode === 'ALL' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}
+                 >
+                   {t.all_together}
+                 </button>
+                 <button 
+                   onClick={() => setSplitMode('SPLIT')}
+                   className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-lg transition-all ${splitMode === 'SPLIT' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}
+                 >
+                   <Users size={12} /> {t.split_evenly}
+                 </button>
+                 <button 
+                   onClick={() => setSplitMode('ITEMS')}
+                   className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold rounded-lg transition-all ${splitMode === 'ITEMS' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}
+                 >
+                   <Menu size={12} /> {t.pay_separately}
+                 </button>
+               </div>
+             )}
+
+             {splitMode === 'ITEMS' && (
+                 <div className="mb-6 bg-slate-50 border border-slate-100 rounded-2xl p-4 max-h-[300px] overflow-y-auto w-full text-left inline-block">
+                    <p className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">{t.choose_your_part}</p>
+                    {unpaidItemsList.length === 0 ? (
+                       <p className="text-sm text-slate-400">{t.no_pending_products}</p>
+                    ) : (
+                       <div className="space-y-3">
+                         {unpaidItemsList.map(item => {
+                            const selectedQty = selectedSplitItems[item.id] || 0;
+                            return (
+                              <div key={item.id} className="flex items-center justify-between">
+                                 <div className="flex-1 pr-2">
+                                     <span className="font-bold text-slate-800 text-sm">{item.name}</span>
+                                     <div className="text-xs text-slate-500">{(item.price * (selectedQty || 1)).toFixed(2)}€ max {item.unpaidQty}</div>
+                                 </div>
+                                 
+                                 <div className="flex items-center bg-white border border-slate-200 rounded-full overflow-hidden shadow-sm shrink-0">
+                                     <button 
+                                       onClick={() => handleDecrementSplit(item.id)}
+                                       className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                                     >
+                                        <Minus size={14} />
+                                     </button>
+                                     <span className="w-6 text-center text-sm font-bold text-slate-900">{selectedQty}</span>
+                                     <button 
+                                       onClick={() => handleIncrementSplit(item.id, item.unpaidQty)}
+                                       className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                                     >
+                                        <Plus size={14} />
+                                     </button>
+                                 </div>
+                              </div>
+                            );
+                         })}
+                       </div>
+                    )}
+                 </div>
+             )}
+
+             <div className="flex justify-between items-center mb-1">
+                <span className="text-slate-500 font-bold text-sm">
+                  {splitMode === 'SPLIT' && guestCount > 1 ? t.table_total_evenly : splitMode === 'ITEMS' ? t.my_part : t.table_total}
+                </span>
+                <span className="text-3xl font-black text-slate-900">
+                   {splitMode === 'SPLIT' ? totalAmount.toFixed(2) : displayTotal.toFixed(2)}€
+                </span>
              </div>
+             {splitMode === 'SPLIT' && guestCount > 1 && (
+                 <div className="flex justify-between items-center mb-6">
+                    <span className="text-slate-400 font-medium text-xs"></span>
+                    <span className="text-blue-600 font-bold text-sm">
+                      {t.to_pay} {(totalAmount / guestCount).toFixed(2)}€{t.per_person}
+                    </span>
+                 </div>
+             )}
+             {splitMode !== 'SPLIT' && <div className="mb-6"></div>}
              
              <div className="space-y-3 mb-6">
                 <Button
                   fullWidth
-                  className="bg-black text-white hover:bg-slate-800 shadow-xl shadow-black/20 py-4 relative overflow-hidden"
+                  disabled={splitMode === 'ITEMS' && selectedItemsTotal === 0}
+                  className="bg-black text-white hover:bg-slate-800 shadow-xl shadow-black/20 py-4 relative overflow-hidden h-14 disabled:opacity-50 disabled:shadow-none"
                   onClick={() => {
-                    handleRequestBill('ONLINE');
-                    alert("Redirigiendo a pasarela de pago (Stripe)...");
+                    handleRequestBill('ONLINE', splitMode === 'SPLIT' && guestCount > 1 ? guestCount : undefined, itemsToPayArg);
+                    setSelectedSplitItems({});
+                    alert(t.redirecting_stripe);
                   }}
                 >
                   <span className="flex items-center justify-center gap-2 relative z-10 w-full">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-5 h-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
-                    Pagar ahora (Tarjeta / Apple Pay)
+                    {t.pay_apple_pay}
                   </span>
                 </Button>
                 
                 <Button
                   fullWidth
-                  className="bg-blue-800 text-white hover:bg-blue-900 shadow-xl shadow-blue-800/20 py-4 relative overflow-hidden"
-                  onClick={() => handleRequestBill('CARD')}
+                  disabled={splitMode === 'ITEMS' && selectedItemsTotal === 0}
+                  className="bg-blue-800 text-white hover:bg-blue-900 shadow-xl shadow-blue-800/20 py-4 relative overflow-hidden h-14 disabled:opacity-50 disabled:shadow-none"
+                  onClick={() => {
+                     handleRequestBill('CARD', splitMode === 'SPLIT' && guestCount > 1 ? guestCount : undefined, itemsToPayArg);
+                     setSelectedSplitItems({});
+                  }}
                 >
                   <span className="flex items-center justify-center gap-2 relative z-10 w-full">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-5 h-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
-                    Pagar con tarjeta
+                    {t.pay_card}
                   </span>
                 </Button>
 
                 <Button
                   fullWidth
-                  className="bg-emerald-700 text-white hover:bg-emerald-800 shadow-xl shadow-emerald-700/20 py-4 relative overflow-hidden"
-                  onClick={() => handleRequestBill('CASH')}
+                  disabled={splitMode === 'ITEMS' && selectedItemsTotal === 0}
+                  className="bg-emerald-700 text-white hover:bg-emerald-800 shadow-xl shadow-emerald-700/20 py-4 relative overflow-hidden h-14 disabled:opacity-50 disabled:shadow-none"
+                  onClick={() => {
+                     handleRequestBill('CASH', splitMode === 'SPLIT' && guestCount > 1 ? guestCount : undefined, itemsToPayArg);
+                     setSelectedSplitItems({});
+                  }}
                 >
                   <span className="flex items-center justify-center gap-2 relative z-10 w-full">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-5 h-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10h12"></path><path d="M4 14h9"></path><path d="M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2"></path></svg>
-                    Pagar en efectivo
+                    {t.pay_cash}
                   </span>
                 </Button>
              </div>
@@ -855,7 +1086,7 @@ const AdminDashboardScreen: React.FC<{
   billRequests: BillRequest[];
   updateBillStatus: (id: string, s: 'PENDING' | 'COMPLETED') => void;
 }> = ({ setCurrentScreen, orders, updateOrderStatus, clearOrders, menuItems, updateMenuItem, billRequests, updateBillStatus }) => {
-  const [activeTab, setActiveTab] = useState<'INICIO' | 'RESUMENES' | 'CARTA' | 'CUENTAS'>('INICIO');
+  const [activeTab, setActiveTab] = useState<'INICIO' | 'RESUMENES' | 'CARTA' | 'CUENTAS' | 'CALCULADORA'>('INICIO');
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
   
   // Add state for selected date
@@ -899,21 +1130,31 @@ const AdminDashboardScreen: React.FC<{
   });
 
   // Summaries Calculations
-  const dailyOrders = orders.filter(
-      order => new Date(order.timestamp).toDateString() === new Date(summaryDailyDate).toDateString()
+  const completedBills = billRequests.filter(b => b.status === 'COMPLETED');
+
+  // Daily totals
+  const dailyBills = completedBills.filter(
+      b => new Date(b.timestamp).toDateString() === new Date(summaryDailyDate).toDateString()
   );
-  const dailyTotal = dailyOrders.reduce((sum, o) => sum + o.total, 0);
+  const dailyTotal = dailyBills.reduce((sum, b) => sum + (b.total || 0), 0);
+  const dailyTotalCard = dailyBills.filter(b => b.paymentMethod === 'CARD' || b.paymentMethod === 'ONLINE').reduce((sum, b) => sum + (b.total || 0), 0);
+  const dailyTotalCash = dailyBills.filter(b => b.paymentMethod === 'CASH').reduce((sum, b) => sum + (b.total || 0), 0);
 
+  // Monthly totals
   const [summaryMonthlyYear, summaryMonthlyMonth] = summaryMonthlyDate.split('-');
-  const monthlyOrders = orders.filter(order => {
-      const orderDate = new Date(order.timestamp);
-      return orderDate.getMonth() === parseInt(summaryMonthlyMonth) - 1 && orderDate.getFullYear() === parseInt(summaryMonthlyYear);
+  const monthlyBills = completedBills.filter(b => {
+      const billDate = new Date(b.timestamp);
+      return billDate.getMonth() === parseInt(summaryMonthlyMonth) - 1 && billDate.getFullYear() === parseInt(summaryMonthlyYear);
   });
-  const monthlyTotal = monthlyOrders.reduce((sum, o) => sum + o.total, 0);
+  const monthlyTotal = monthlyBills.reduce((sum, b) => sum + (b.total || 0), 0);
+  const monthlyTotalCard = monthlyBills.filter(b => b.paymentMethod === 'CARD' || b.paymentMethod === 'ONLINE').reduce((sum, b) => sum + (b.total || 0), 0);
+  const monthlyTotalCash = monthlyBills.filter(b => b.paymentMethod === 'CASH').reduce((sum, b) => sum + (b.total || 0), 0);
 
-  const globalTotal = orders.reduce((sum, o) => sum + o.total, 0);
-  const totalGuests = orders.reduce((sum, o) => sum + o.guestCount, 0);
-  const averageTicket = orders.length > 0 ? (globalTotal / orders.length) : 0;
+  // Global totals
+  const globalTotal = completedBills.reduce((sum, b) => sum + (b.total || 0), 0);
+  
+  const totalGuests = orders.reduce((sum, o) => sum + (o.guestCount || 0), 0);
+  const averageTicket = completedBills.length > 0 ? (globalTotal / completedBills.length) : 0;
 
   const getTopProducts = (orderList: typeof orders) => {
       const productSales: Record<string, {name: string, quantity: number, total: number}> = {};
@@ -967,11 +1208,21 @@ const AdminDashboardScreen: React.FC<{
                  >
                      <Receipt size={18} />
                      Las Cuentas
-                     {billRequests.filter(b => b.status === 'PENDING').length > 0 && (
-                         <span className="ml-auto bg-blue-500 text-white px-2 py-0.5 rounded-full text-[10px]">
-                             {billRequests.filter(b => b.status === 'PENDING').length}
-                         </span>
-                     )}
+                     {(() => {
+                         const pendingTables = new Set(billRequests.filter(b => b.status === 'PENDING').map(b => `${b.location}-${b.tableNumber}`));
+                         return pendingTables.size > 0 ? (
+                             <span className="ml-auto bg-[#4ade80] text-green-900 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                 {pendingTables.size}
+                             </span>
+                         ) : null;
+                     })()}
+                 </button>
+                 <button 
+                     onClick={() => setActiveTab('CALCULADORA')}
+                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm tracking-wide ${activeTab === 'CALCULADORA' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                 >
+                     <Calculator size={18} />
+                     Calculadora
                  </button>
              </nav>
              <button
@@ -1125,6 +1376,16 @@ const AdminDashboardScreen: React.FC<{
                                  />
                                </div>
                                <p className="text-4xl sm:text-5xl font-serif font-black text-slate-900 relative z-10">{dailyTotal.toFixed(2)}€</p>
+                               <div className="flex gap-4 mt-4 relative z-10">
+                                   <div className="bg-slate-50 px-3 py-2 rounded-lg border border-slate-100 flex-1">
+                                       <span className="text-[10px] uppercase font-bold text-slate-500 block mb-0.5">Tarjeta / Online</span>
+                                       <span className="text-sm font-black text-blue-700">{dailyTotalCard.toFixed(2)}€</span>
+                                   </div>
+                                   <div className="bg-slate-50 px-3 py-2 rounded-lg border border-slate-100 flex-1">
+                                       <span className="text-[10px] uppercase font-bold text-slate-500 block mb-0.5">Efectivo</span>
+                                       <span className="text-sm font-black text-emerald-700">{dailyTotalCash.toFixed(2)}€</span>
+                                   </div>
+                               </div>
                            </div>
                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden group w-full">
                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -1143,6 +1404,16 @@ const AdminDashboardScreen: React.FC<{
                                  />
                                </div>
                                <p className="text-4xl sm:text-5xl font-serif font-black text-slate-900 relative z-10">{monthlyTotal.toFixed(2)}€</p>
+                               <div className="flex gap-4 mt-4 relative z-10">
+                                   <div className="bg-slate-50 px-3 py-2 rounded-lg border border-slate-100 flex-1">
+                                       <span className="text-[10px] uppercase font-bold text-slate-500 block mb-0.5">Tarjeta / Online</span>
+                                       <span className="text-sm font-black text-blue-700">{monthlyTotalCard.toFixed(2)}€</span>
+                                   </div>
+                                   <div className="bg-slate-50 px-3 py-2 rounded-lg border border-slate-100 flex-1">
+                                       <span className="text-[10px] uppercase font-bold text-slate-500 block mb-0.5">Efectivo</span>
+                                       <span className="text-sm font-black text-emerald-700">{monthlyTotalCash.toFixed(2)}€</span>
+                                   </div>
+                               </div>
                            </div>
                       </div>
 
@@ -1285,58 +1556,139 @@ const AdminDashboardScreen: React.FC<{
                                   <p className="font-medium">No hay peticiones de cuenta pendientes</p>
                               </div>
                           ) : (
-                              billRequests
-                                  .filter(b => b.status === 'PENDING')
-                                  .sort((a, b) => a.timestamp - b.timestamp)
-                                  .map(bill => (
-                                      <div key={bill.id} className="bg-white p-6 rounded-2xl shadow-sm border border-amber-200 relative overflow-hidden flex flex-col">
-                                          <div className="absolute top-0 right-0 p-4 opacity-10">
-                                              <Receipt size={64} className="text-amber-500" />
-                                          </div>
-                                          
-                                          <div className="relative z-10 flex-1">
-                                              <div className="flex justify-between items-start mb-4">
-                                                  <div>
-                                                      <h3 className="text-2xl font-bold text-slate-900 mb-1">Mesa {bill.tableNumber}</h3>
-                                                      <p className="text-slate-500 text-xs font-mono uppercase tracking-wider">{bill.location}</p>
-                                                      {bill.paymentMethod && (
-                                                          <p className="text-blue-600 font-bold text-xs mt-1 uppercase">
-                                                              PAGO: {bill.paymentMethod === 'ONLINE' ? 'APPLE PAY / TARJETA VIRTUAL' : bill.paymentMethod === 'CARD' ? 'DATÁFONO' : 'EFECTIVO'}
-                                                          </p>
-                                                      )}
-                                                  </div>
-                                                  <span className="bg-amber-100 text-amber-600 text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest border border-amber-200">
-                                                      Pendiente
-                                                  </span>
+                              (() => {
+                                  const pendingBills = billRequests.filter(b => b.status === 'PENDING').sort((a, b) => a.timestamp - b.timestamp);
+                                  const groupedBills = pendingBills.reduce((acc, bill) => {
+                                      const key = `${bill.location}-${bill.tableNumber}`;
+                                      if (!acc[key]) acc[key] = [];
+                                      acc[key].push(bill);
+                                      return acc;
+                                  }, {} as Record<string, BillRequest[]>);
+
+                                  return Object.values(groupedBills).map(tableBills => {
+                                      const firstBill = tableBills[0];
+                                      const tableNumber = firstBill.tableNumber;
+                                      const location = firstBill.location;
+                                      
+                                      let isFullyRequested = false;
+                                      const firstSplitBill = tableBills.find(b => b.splitWays !== undefined);
+                                      if (firstSplitBill) {
+                                          isFullyRequested = tableBills.length >= 1;
+                                      } else {
+                                          const activeTableOrders = orders.filter(o => o.location === location && o.tableNumber === tableNumber && !o.paid);
+                                          let totalUnpaidQty = 0;
+                                          activeTableOrders.forEach(o => {
+                                              o.items.forEach(item => {
+                                                  totalUnpaidQty += item.quantity - (item.paidQuantity || 0);
+                                              });
+                                          });
+
+                                          let totalRequestedQty = 0;
+                                          tableBills.forEach(b => {
+                                              if (b.itemsToPay && b.itemsToPay.length > 0) {
+                                                  b.itemsToPay.forEach(item => {
+                                                      totalRequestedQty += item.quantity;
+                                                  });
+                                              } else {
+                                                  totalRequestedQty += totalUnpaidQty; 
+                                              }
+                                          });
+                                          // Add buffer or straight equals
+                                          isFullyRequested = totalUnpaidQty === 0 || totalRequestedQty >= totalUnpaidQty;
+                                      }
+
+                                      const tableTotal = tableBills.reduce((sum, b) => sum + (b.total || 0), 0);
+
+                                      return (
+                                          <div key={`table-${location}-${tableNumber}`} className="bg-white p-6 rounded-2xl shadow-sm border border-amber-200 relative overflow-hidden flex flex-col">
+                                              <div className="absolute top-0 right-0 p-4 opacity-10">
+                                                  <Receipt size={64} className="text-amber-500" />
                                               </div>
                                               
-                                              <div className="flex items-center justify-between mb-6">
-                                                  <div className="flex items-center gap-2 text-slate-400 text-sm font-medium">
-                                                      <Clock size={14} />
-                                                      <span>{new Date(bill.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                              <div className="relative z-10 flex-1">
+                                                  <div className="flex justify-between items-start mb-4">
+                                                      <div>
+                                                          <h3 className="text-2xl font-bold text-slate-900 mb-1">Mesa {tableNumber}</h3>
+                                                          <p className="text-slate-500 text-xs font-mono uppercase tracking-wider">{location}</p>
+                                                      </div>
+                                                      <span className={`text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest border ${isFullyRequested ? 'bg-green-100 text-green-600 border-green-200' : 'bg-amber-100 text-amber-600 border-amber-200'}`}>
+                                                          {isFullyRequested ? 'Lista para cobrar' : 'Esperando...'}
+                                                      </span>
                                                   </div>
-                                                  <div className="text-xl font-black text-slate-800">
-                                                      {(bill.total || 0).toFixed(2)}€
+                                                  
+                                                  <div className="mb-4 max-h-64 overflow-y-auto pr-1">
+                                                      {tableBills.map((bill, idx) => (
+                                                          <div key={bill.id} className="mb-3 p-3 bg-slate-50 rounded-lg text-sm border border-slate-100">
+                                                               <div className="flex flex-col mb-1">
+                                                                   <div className="flex justify-between items-center font-bold text-slate-800">
+                                                                       <span>
+                                                                           {bill.splitWays 
+                                                                               ? 'Equitativo' 
+                                                                               : `Invitado ${idx + 1}`} 
+                                                                           {bill.paymentMethod ? ` - ${bill.paymentMethod === 'ONLINE' ? 'APPLE PAY' : bill.paymentMethod === 'CARD' ? 'DATÁFONO' : 'EFECTIVO'}` : ''}
+                                                                       </span>
+                                                                       <span>{(bill.total || 0).toFixed(2)}€</span>
+                                                                   </div>
+                                                                   {bill.splitWays && (
+                                                                       <span className="text-xs text-slate-500 font-medium">
+                                                                           ({bill.splitWays} personas a {((bill.total || 0) / bill.splitWays).toFixed(2)}€ c/u)
+                                                                       </span>
+                                                                   )}
+                                                               </div>
+                                                               {bill.itemsToPay && bill.itemsToPay.length > 0 && (
+                                                                   <div className="text-xs text-slate-500 mt-1 space-y-1">
+                                                                        {bill.itemsToPay.map((item, i) => (
+                                                                            <div key={i} className="flex justify-between">
+                                                                                 <span>{item.quantity}x {item.name}</span>
+                                                                                 <span>{(item.price * item.quantity).toFixed(2)}€</span>
+                                                                            </div>
+                                                                        ))}
+                                                                   </div>
+                                                               )}
+                                                          </div>
+                                                      ))}
+                                                  </div>
+                                                  
+                                                  <div className="flex items-center justify-between mb-6 pt-3 border-t border-slate-100">
+                                                      <div className="font-bold text-slate-500 text-sm">
+                                                          Total Mesa
+                                                      </div>
+                                                      <div className="text-2xl font-black text-slate-800">
+                                                          {tableTotal.toFixed(2)}€
+                                                      </div>
                                                   </div>
                                               </div>
-                                          </div>
 
-                                          <div className="relative z-10 mt-auto">
-                                              <Button 
-                                                  fullWidth 
-                                                  className="bg-blue-600 text-white shadow-xl shadow-blue-600/20 flex items-center justify-center gap-2"
-                                                  onClick={() => updateBillStatus(bill.id, 'COMPLETED')}
-                                              >
-                                                  <CheckCircle size={16} />
-                                                  Marcar como cobrado
-                                              </Button>
+                                              <div className="relative z-10 mt-auto">
+                                                  {isFullyRequested ? (
+                                                      <Button 
+                                                          fullWidth 
+                                                          className="bg-blue-600 text-white shadow-xl shadow-blue-600/20 flex items-center justify-center gap-2"
+                                                          onClick={() => tableBills.forEach(b => updateBillStatus(b.id, 'COMPLETED'))}
+                                                      >
+                                                          <CheckCircle size={16} />
+                                                          Marcar mesa como cobrada
+                                                      </Button>
+                                                  ) : (
+                                                      <Button 
+                                                          fullWidth 
+                                                          disabled
+                                                          className="bg-slate-100 text-slate-400 flex items-center justify-center gap-2 cursor-not-allowed border border-slate-200"
+                                                      >
+                                                          <Clock size={16} />
+                                                          Esperando al resto...
+                                                      </Button>
+                                                  )}
+                                              </div>
                                           </div>
-                                      </div>
-                                  ))
+                                      );
+                                  });
+                              })()
                           )}
                       </div>
                   </div>
               )}
+              {activeTab === 'CALCULADORA' && <CashCalculator />}
           </div>
       </div>
   );
@@ -1492,7 +1844,7 @@ const App: React.FC = () => {
     sendWebhook(WEBHOOK_URLS.NEW_ORDER, newOrder);
   };
 
-  const handleRequestBill = async (method: 'CARD' | 'CASH' | 'ONLINE') => {
+  const handleRequestBill = async (method: 'CARD' | 'CASH' | 'ONLINE', splitWays?: number, itemsToPay?: { id: string; name: string; quantity: number; price: number }[]) => {
     const newBillId = Math.random().toString(36).substr(2, 9);
     
     // Calculate total from table orders
@@ -1506,9 +1858,15 @@ const App: React.FC = () => {
       location: selectedLocation || 'DESCONOCIDO',
       timestamp: Date.now(),
       status: 'PENDING',
-      total: tableTotal,
+      total: itemsToPay ? itemsToPay.reduce((s, i) => s + (i.price * i.quantity), 0) : tableTotal,
       paymentMethod: method
     };
+    
+    if (splitWays) newBill.splitWays = splitWays;
+    if (itemsToPay && itemsToPay.length > 0) newBill.itemsToPay = itemsToPay;
+
+    // Redirect to menu instantly so the 'LA CUENTA' tab vanishes without flashing
+    setActiveTab('menu');
 
     try {
       await setDoc(doc(db, 'bills', newBillId), newBill);
@@ -1570,10 +1928,41 @@ const App: React.FC = () => {
         const bill = billRequests.find(b => b.id === billId);
         if (bill) {
           const tableOrders = orders.filter(o => o.location === bill.location && o.tableNumber === bill.tableNumber && !o.paid);
-          // Optional: we can use a batch here since we are doing multiple setDocs, 
-          // but doing individual updates works too if there are few.
-          for (const order of tableOrders) {
-             await updateDoc(doc(db, 'orders', order.id), { paid: true });
+          if (bill.itemsToPay && bill.itemsToPay.length > 0) {
+             // It's a partial items payment
+             for (const paidItem of bill.itemsToPay) {
+                let qtyToPay = paidItem.quantity;
+                for (const order of tableOrders) {
+                   const itemInOrder = order.items.find(i => i.id === paidItem.id);
+                   if (itemInOrder && (itemInOrder.quantity > (itemInOrder.paidQuantity || 0))) {
+                      const availableToPay = itemInOrder.quantity - (itemInOrder.paidQuantity || 0);
+                      const paysHere = Math.min(qtyToPay, availableToPay);
+                      itemInOrder.paidQuantity = (itemInOrder.paidQuantity || 0) + paysHere;
+                      qtyToPay -= paysHere;
+                   }
+                   if (qtyToPay <= 0) break;
+                }
+             }
+
+             // Save updated orders and check if any order is fully paid
+             for (const order of tableOrders) {
+                const isFullyPaid = order.items.every(i => (i.paidQuantity || 0) >= i.quantity);
+                await updateDoc(doc(db, 'orders', order.id), { 
+                   items: order.items,
+                   paid: isFullyPaid 
+                });
+             }
+          } else if (bill.splitWays) {
+             // For split ways we just register the bill, we do NOT empty the table 
+             // unless it's the last split. It's complex to track 2/3 splits.
+             // We can just keep it unpaid until we add a "remaining balance" feature,
+             // or simply trust the waiter to know. Let's do nothing to `orders.paid` for 'SPLIT'
+             // so the table can ask for the next split.
+          } else {
+             // For ALL, mark all as paid
+             for (const order of tableOrders) {
+                await updateDoc(doc(db, 'orders', order.id), { paid: true });
+             }
           }
         }
       }
@@ -1639,6 +2028,7 @@ const App: React.FC = () => {
           menuItems={menuItems}
           hasActiveOrders={orders.some(o => o.location === selectedLocation && o.tableNumber === selectedTable && !o.paid)}
           orders={orders}
+          billRequests={billRequests}
         />
       )}
       {currentScreen === Screen.CHEF_LOGIN && (
