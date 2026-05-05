@@ -1873,7 +1873,7 @@ const App: React.FC = () => {
   const [billRequests, setBillRequests] = useState<BillRequest[]>([]);
   
   // Menu State
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(MENU_ITEMS);
 
   useEffect(() => {
     // Authenticate anonymously so we can read/write directly
