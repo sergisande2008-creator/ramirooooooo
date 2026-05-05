@@ -1908,22 +1908,22 @@ const App: React.FC = () => {
 
   // Sync menu
   useEffect(() => {
-    const q = query(collection(db, 'menu'));
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      if (snapshot.empty) {
+    const unsubscribe = onSnapshot(doc(db, 'config', 'menu'), async (snapshot) => {
+      if (!snapshot.exists()) {
         // Populate if empty
-        const batch = writeBatch(db);
-        MENU_ITEMS.forEach(item => {
-          const docRef = doc(collection(db, 'menu'), item.id);
-          batch.set(docRef, item);
-        });
-        await batch.commit().catch(e => console.error("Error batch committing menu", e));
+        try {
+          await setDoc(doc(db, 'config', 'menu'), { items: MENU_ITEMS });
+        } catch (e) {
+          console.error("Error setting initial menu", e);
+        }
       } else {
-        const menuData: MenuItem[] = snapshot.docs.map(doc => doc.data() as MenuItem);
-        setMenuItems(menuData);
+        const data = snapshot.data();
+        if (data && data.items) {
+          setMenuItems(data.items);
+        }
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'menu');
+      handleFirestoreError(error, OperationType.GET, 'config/menu');
     });
 
     return () => unsubscribe();
@@ -2125,9 +2125,11 @@ const App: React.FC = () => {
 
   const updateMenuItem = async (updatedItem: MenuItem) => {
     try {
-      await setDoc(doc(db, 'menu', updatedItem.id), updatedItem, { merge: true });
+      const newItems = menuItems.map(item => item.id === updatedItem.id ? updatedItem : item);
+      setMenuItems(newItems);
+      await setDoc(doc(db, 'config', 'menu'), { items: newItems });
     } catch(error) {
-      handleFirestoreError(error, OperationType.WRITE, 'menu');
+      handleFirestoreError(error, OperationType.WRITE, 'config/menu');
     }
   };
 
