@@ -32,7 +32,8 @@ import {
   Award,
   Users,
   Menu,
-  Calculator
+  Calculator,
+  Printer
 } from 'lucide-react';
 
 import { 
@@ -236,8 +237,7 @@ const TableSelectionScreen: React.FC<{
   setSelectedTable: (t: string) => void;
   selectedLocation: string | null;
   language: Language;
-  setCart: (c: typeof cart) => void;
-}> = ({ setCurrentScreen, setSelectedTable, selectedLocation, language, setCart }) => {
+}> = ({ setCurrentScreen, setSelectedTable, selectedLocation, language }) => {
   const t = UI_TRANSLATIONS[language];
   return (
   <div className="min-h-screen bg-slate-50 flex flex-col p-6">
@@ -257,7 +257,6 @@ const TableSelectionScreen: React.FC<{
             key={table}
             onClick={() => {
               setSelectedTable(table);
-              setCart([]);
               setCurrentScreen(Screen.GUEST_SELECTION);
             }}
             className="aspect-square bg-white rounded-3xl flex flex-col items-center justify-center shadow-sm border border-slate-100 hover:border-blue-500 hover:shadow-md active:scale-95 transition-all group relative overflow-hidden"
@@ -351,12 +350,11 @@ const MenuScreen: React.FC<{
   hasActiveOrders: boolean;
   orders: Order[];
   billRequests: BillRequest[];
-  setCart: (c: typeof cart) => void;
 }> = ({ 
   selectedLocation, selectedTable, guestCount, setCurrentScreen,
   activeTab, setActiveTab, cart, selectedCategory, setSelectedCategory,
   getItemQuantity, addToCart, removeFromCart, getCartTotal, handleSendOrder,
-  handleRequestBill, orderSuccessMessage, billSuccessMessage, language, menuItems, hasActiveOrders, orders, billRequests, setCart
+  handleRequestBill, orderSuccessMessage, billSuccessMessage, language, menuItems, hasActiveOrders, orders, billRequests
 }) => {
   const t = UI_TRANSLATIONS[language];
   const [splitMode, setSplitMode] = useState<'ALL' | 'SPLIT' | 'ITEMS'>('ALL');
@@ -417,7 +415,7 @@ const MenuScreen: React.FC<{
             </p>
           </div>
         </div>
-        <button onClick={() => { setCart([]); setCurrentScreen(Screen.LANDING); }} className="p-3 bg-slate-100 rounded-full text-slate-400 hover:bg-slate-200 transition-colors">
+        <button onClick={() => { setCurrentScreen(Screen.LANDING); }} className="p-3 bg-slate-100 rounded-full text-slate-400 hover:bg-slate-200 transition-colors">
           <Home size={20} />
         </button>
       </div>
@@ -1177,6 +1175,89 @@ const AdminDashboardScreen: React.FC<{
   };
   const topProductsGlobal = getTopProducts(orders);
 
+  const printTicket = (tableNumber: string, location: string, tableBills: BillRequest[]) => {
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+      
+      const tableTotal = tableBills.reduce((sum, b) => sum + (b.total || 0), 0);
+      
+      let itemsHtml = '';
+      tableBills.forEach(bill => {
+          if (bill.splitWays) {
+               itemsHtml += `
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                      <span>División equitativa (1/${bill.splitWays})</span>
+                      <span>${((bill.total || 0)).toFixed(2)}€</span>
+                  </div>
+              `;
+          } else if (bill.itemsToPay && bill.itemsToPay.length > 0) {
+              bill.itemsToPay.forEach(item => {
+                  itemsHtml += `
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                          <span>${item.quantity}x ${item.name}</span>
+                          <span>${(item.price * item.quantity).toFixed(2)}€</span>
+                      </div>
+                  `;
+              });
+          }
+      });
+
+      // Si no hay items especificados en los bills y no es fraccionado, intentamos cogerlos de los pedidos de esa mesa que no esten pagados
+      if (itemsHtml === '') {
+          const tableOrders = orders.filter(o => o.location === location && o.tableNumber === tableNumber && !o.paid);
+          tableOrders.forEach(o => {
+              o.items.forEach(item => {
+                  let qtyToPay = item.quantity - (item.paidQuantity || 0);
+                  if (qtyToPay > 0) {
+                      itemsHtml += `
+                          <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                              <span>${qtyToPay}x ${item.name}</span>
+                              <span>${(item.price * qtyToPay).toFixed(2)}€</span>
+                          </div>
+                      `;
+                  }
+              });
+          });
+      }
+
+      const htmlContent = `
+          <html>
+              <head>
+                  <title>Ticket Mesa ${tableNumber}</title>
+                  <style>
+                      body { font-family: monospace; padding: 20px; max-width: 300px; margin: 0 auto; color: black; background: white; white-space: pre-wrap; font-size: 14px; }
+                      .header { text-align: center; margin-bottom: 20px; border-bottom: 1px dashed black; padding-bottom: 10px; }
+                      .items { margin-bottom: 20px; border-bottom: 1px dashed black; padding-bottom: 10px; }
+                      .total { display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2em; }
+                      @media print {
+                          body { width: 100%; margin: 0; padding: 0; }
+                      }
+                  </style>
+              </head>
+              <body>
+                  <div class="header">
+                      <h2>NEVADA.</h2>
+                      <p>Mesa ${tableNumber} - ${location}</p>
+                      <p>${new Date().toLocaleString()}</p>
+                  </div>
+                  <div class="items">
+                      ${itemsHtml || '<p>---</p>'}
+                  </div>
+                  <div class="total">
+                      <span>TOTAL:</span>
+                      <span>${tableTotal.toFixed(2)}€</span>
+                  </div>
+                  <p style="text-align: center; margin-top: 20px;">¡Gracias por su visita!</p>
+                  <script>
+                      window.onload = function() { window.print(); window.close(); }
+                  </script>
+              </body>
+          </html>
+      `;
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+  };
+
   return (
       <div className="min-h-screen bg-slate-50 flex">
           {/* Sidebar */}
@@ -1196,7 +1277,7 @@ const AdminDashboardScreen: React.FC<{
                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm tracking-wide ${activeTab === 'RESUMENES' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
                  >
                      <BarChart3 size={18} />
-                     Analíticas y Reportes
+                     Facturación
                  </button>
                  <button 
                      onClick={() => setActiveTab('CARTA')}
@@ -1210,7 +1291,7 @@ const AdminDashboardScreen: React.FC<{
                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm tracking-wide ${activeTab === 'CUENTAS' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
                  >
                      <Receipt size={18} />
-                     Facturación y Cobros
+                     Cobros
                      {(() => {
                          const pendingTables = new Set(billRequests.filter(b => b.status === 'PENDING').map(b => `${b.location}-${b.tableNumber}`));
                          return pendingTables.size > 0 ? (
@@ -1348,7 +1429,7 @@ const AdminDashboardScreen: React.FC<{
                   <div className="p-6 md:p-8 flex-1">
                       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
                           <div>
-                              <h1 className="text-3xl font-serif font-black text-slate-900 mb-1">Analíticas y Reportes</h1>
+                              <h1 className="text-3xl font-serif font-black text-slate-900 mb-1">Facturación</h1>
                               <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
                                   FACTURACIÓN GLOBAL
                               </p>
@@ -1547,7 +1628,7 @@ const AdminDashboardScreen: React.FC<{
                   <div className="animate-fade-in pb-12 w-full max-w-4xl mx-auto p-6 md:p-8">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                           <div>
-                              <h2 className="text-3xl font-black text-slate-800 tracking-tight">Facturación y Cobros</h2>
+                              <h2 className="text-3xl font-black text-slate-800 tracking-tight">Cobros</h2>
                               <p className="text-slate-500 mt-1">Peticiones de cuenta de las mesas en tiempo real.</p>
                           </div>
                       </div>
@@ -1662,7 +1743,7 @@ const AdminDashboardScreen: React.FC<{
                                                   </div>
                                               </div>
 
-                                              <div className="relative z-10 mt-auto">
+                                              <div className="relative z-10 mt-auto flex flex-col gap-2">
                                                   {isFullyRequested ? (
                                                       <Button 
                                                           fullWidth 
@@ -1670,7 +1751,7 @@ const AdminDashboardScreen: React.FC<{
                                                           onClick={() => tableBills.forEach(b => updateBillStatus(b.id, 'COMPLETED'))}
                                                       >
                                                           <CheckCircle size={16} />
-                                                          Marcar mesa como cobrada
+                                                          Marcar como cobrada
                                                       </Button>
                                                   ) : (
                                                       <Button 
@@ -1682,6 +1763,15 @@ const AdminDashboardScreen: React.FC<{
                                                           Esperando al resto...
                                                       </Button>
                                                   )}
+                                                  <Button 
+                                                      fullWidth 
+                                                      variant="outline"
+                                                      className="flex items-center justify-center gap-2 border-slate-200 hover:bg-slate-50"
+                                                      onClick={() => printTicket(tableNumber, location, tableBills)}
+                                                  >
+                                                      <Printer size={16} />
+                                                      Imprimir Ticket
+                                                  </Button>
                                               </div>
                                           </div>
                                       );
@@ -1709,7 +1799,19 @@ const App: React.FC = () => {
   const [selectedLocation, setSelectedLocation] = useState<'DENTRO' | 'FUERA' | null>(null);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [guestCount, setGuestCount] = useState<number>(2);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartsByTable, setCartsByTable] = useState<Record<string, CartItem[]>>({});
+  
+  const tableKey = `${selectedLocation}-${selectedTable}`;
+  const cart = cartsByTable[tableKey] || [];
+  
+  const setCart = React.useCallback((value: React.SetStateAction<CartItem[]>) => {
+    if (!selectedLocation || !selectedTable) return;
+    setCartsByTable(prev => {
+      const currentCart = prev[tableKey] || [];
+      const newCart = typeof value === 'function' ? value(currentCart) : value;
+      return { ...prev, [tableKey]: newCart };
+    });
+  }, [selectedLocation, selectedTable, tableKey]);
   const [activeTab, setActiveTab] = useState<'menu' | 'order'>('menu');
   const [selectedCategory, setSelectedCategory] = useState<MenuCategory>(MenuCategory.ALL);
   const [chefPin, setChefPin] = useState<string>('');
@@ -1996,7 +2098,6 @@ const App: React.FC = () => {
           setSelectedTable={setSelectedTable} 
           selectedLocation={selectedLocation} 
           language={language}
-          setCart={setCart}
         />
       )}
       {currentScreen === Screen.GUEST_SELECTION && (
@@ -2015,7 +2116,6 @@ const App: React.FC = () => {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           cart={cart}
-          setCart={setCart}
           addToCart={addToCart}
           removeFromCart={removeFromCart}
           getCartTotal={getCartTotal}
