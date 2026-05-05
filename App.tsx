@@ -1096,6 +1096,40 @@ const AdminDashboardScreen: React.FC<{
       return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   });
 
+  const prevPendingBillsRef = useRef<number>(0);
+
+  const playNotificationSound = React.useCallback(() => {
+    try {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        
+        const phrase = "Han pedido una cuenta. Han pedido una cuenta. Han pedido una cuenta.";
+        const utterance = new SpeechSynthesisUtterance(phrase);
+        utterance.lang = 'es-ES';
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        
+        const voices = window.speechSynthesis.getVoices();
+        const spanishVoice = voices.find(v => v.lang.startsWith('es'));
+        if (spanishVoice) {
+            utterance.voice = spanishVoice;
+        }
+
+        window.speechSynthesis.speak(utterance);
+      }
+    } catch (e) {
+      console.log('Audio playback failed', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    const pendingCount = billRequests.filter(r => r.status === 'PENDING').length;
+    if (pendingCount > prevPendingBillsRef.current) {
+      playNotificationSound();
+    }
+    prevPendingBillsRef.current = pendingCount;
+  }, [billRequests, playNotificationSound]);
+
   // Filter and sort orders
   const sortedOrders = [...orders]
     .filter(order => {
