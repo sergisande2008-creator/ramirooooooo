@@ -236,7 +236,8 @@ const TableSelectionScreen: React.FC<{
   setSelectedTable: (t: string) => void;
   selectedLocation: string | null;
   language: Language;
-}> = ({ setCurrentScreen, setSelectedTable, selectedLocation, language }) => {
+  setCart: (c: typeof cart) => void;
+}> = ({ setCurrentScreen, setSelectedTable, selectedLocation, language, setCart }) => {
   const t = UI_TRANSLATIONS[language];
   return (
   <div className="min-h-screen bg-slate-50 flex flex-col p-6">
@@ -256,6 +257,7 @@ const TableSelectionScreen: React.FC<{
             key={table}
             onClick={() => {
               setSelectedTable(table);
+              setCart([]);
               setCurrentScreen(Screen.GUEST_SELECTION);
             }}
             className="aspect-square bg-white rounded-3xl flex flex-col items-center justify-center shadow-sm border border-slate-100 hover:border-blue-500 hover:shadow-md active:scale-95 transition-all group relative overflow-hidden"
@@ -349,11 +351,12 @@ const MenuScreen: React.FC<{
   hasActiveOrders: boolean;
   orders: Order[];
   billRequests: BillRequest[];
+  setCart: (c: typeof cart) => void;
 }> = ({ 
   selectedLocation, selectedTable, guestCount, setCurrentScreen,
   activeTab, setActiveTab, cart, selectedCategory, setSelectedCategory,
   getItemQuantity, addToCart, removeFromCart, getCartTotal, handleSendOrder,
-  handleRequestBill, orderSuccessMessage, billSuccessMessage, language, menuItems, hasActiveOrders, orders, billRequests
+  handleRequestBill, orderSuccessMessage, billSuccessMessage, language, menuItems, hasActiveOrders, orders, billRequests, setCart
 }) => {
   const t = UI_TRANSLATIONS[language];
   const [splitMode, setSplitMode] = useState<'ALL' | 'SPLIT' | 'ITEMS'>('ALL');
@@ -414,7 +417,7 @@ const MenuScreen: React.FC<{
             </p>
           </div>
         </div>
-        <button onClick={() => setCurrentScreen(Screen.LANDING)} className="p-3 bg-slate-100 rounded-full text-slate-400 hover:bg-slate-200 transition-colors">
+        <button onClick={() => { setCart([]); setCurrentScreen(Screen.LANDING); }} className="p-3 bg-slate-100 rounded-full text-slate-400 hover:bg-slate-200 transition-colors">
           <Home size={20} />
         </button>
       </div>
@@ -1186,28 +1189,28 @@ const AdminDashboardScreen: React.FC<{
                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm tracking-wide ${activeTab === 'INICIO' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
                  >
                      <Home size={18} />
-                     Inicio
+                     Visión General
                  </button>
                  <button 
                      onClick={() => setActiveTab('RESUMENES')}
                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm tracking-wide ${activeTab === 'RESUMENES' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
                  >
                      <BarChart3 size={18} />
-                     Resúmenes
+                     Analíticas y Reportes
                  </button>
                  <button 
                      onClick={() => setActiveTab('CARTA')}
                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm tracking-wide ${activeTab === 'CARTA' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
                  >
                      <Utensils size={18} />
-                     Gestión de Carta
+                     Gestión de Menú
                  </button>
                  <button 
                      onClick={() => setActiveTab('CUENTAS')}
                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm tracking-wide ${activeTab === 'CUENTAS' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
                  >
                      <Receipt size={18} />
-                     Las Cuentas
+                     Facturación y Cobros
                      {(() => {
                          const pendingTables = new Set(billRequests.filter(b => b.status === 'PENDING').map(b => `${b.location}-${b.tableNumber}`));
                          return pendingTables.size > 0 ? (
@@ -1222,7 +1225,7 @@ const AdminDashboardScreen: React.FC<{
                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm tracking-wide ${activeTab === 'CALCULADORA' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
                  >
                      <Calculator size={18} />
-                     Calculadora
+                     Terminal de Caja
                  </button>
              </nav>
              <button
@@ -1345,7 +1348,7 @@ const AdminDashboardScreen: React.FC<{
                   <div className="p-6 md:p-8 flex-1">
                       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
                           <div>
-                              <h1 className="text-3xl font-serif font-black text-slate-900 mb-1">Resúmenes</h1>
+                              <h1 className="text-3xl font-serif font-black text-slate-900 mb-1">Analíticas y Reportes</h1>
                               <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
                                   FACTURACIÓN GLOBAL
                               </p>
@@ -1468,7 +1471,7 @@ const AdminDashboardScreen: React.FC<{
                   <div className="animate-fade-in pb-12 w-full max-w-4xl mx-auto">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                           <div>
-                              <h2 className="text-3xl font-black text-slate-800 tracking-tight">Gestión de la Carta</h2>
+                              <h2 className="text-3xl font-black text-slate-800 tracking-tight">Gestión del Menú</h2>
                               <p className="text-slate-500 mt-1">Activa o desactiva platos y actualiza sus precios.</p>
                           </div>
                           
@@ -1544,7 +1547,7 @@ const AdminDashboardScreen: React.FC<{
                   <div className="animate-fade-in pb-12 w-full max-w-4xl mx-auto p-6 md:p-8">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                           <div>
-                              <h2 className="text-3xl font-black text-slate-800 tracking-tight">Las Cuentas</h2>
+                              <h2 className="text-3xl font-black text-slate-800 tracking-tight">Facturación y Cobros</h2>
                               <p className="text-slate-500 mt-1">Peticiones de cuenta de las mesas en tiempo real.</p>
                           </div>
                       </div>
@@ -1993,6 +1996,7 @@ const App: React.FC = () => {
           setSelectedTable={setSelectedTable} 
           selectedLocation={selectedLocation} 
           language={language}
+          setCart={setCart}
         />
       )}
       {currentScreen === Screen.GUEST_SELECTION && (
@@ -2011,6 +2015,7 @@ const App: React.FC = () => {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           cart={cart}
+          setCart={setCart}
           addToCart={addToCart}
           removeFromCart={removeFromCart}
           getCartTotal={getCartTotal}

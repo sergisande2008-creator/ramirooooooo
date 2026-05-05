@@ -40,7 +40,7 @@ export const CashCalculator: React.FC = () => {
                 <div>
                     <h2 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
                         <Calculator className="text-blue-600" size={32} />
-                        Calculadora de Cambio
+                        Terminal de Caja
                     </h2>
                     <p className="text-slate-500 mt-1">Calcula el cambio exacto a devolver al cliente en efectivo.</p>
                 </div>
