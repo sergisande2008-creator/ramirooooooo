@@ -1096,14 +1096,19 @@ const AdminDashboardScreen: React.FC<{
       return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   });
 
-  const prevPendingBillsRef = useRef<number>(0);
+  const prevPendingBillsRef = useRef<string[]>(
+    billRequests.filter(r => r.status === 'PENDING').map(b => b.id)
+  );
 
-  const playNotificationSound = React.useCallback(() => {
+  const playNotificationSound = React.useCallback((tableNumber: string, location: string) => {
     try {
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
         
-        const phrase = "Han pedido una cuenta. Han pedido una cuenta. Han pedido una cuenta.";
+        const friendlyLocation = location.toLowerCase();
+        const basePhrase = `Han pedido la cuenta de la mesa ${tableNumber} de ${friendlyLocation}.`;
+        const phrase = `${basePhrase} ${basePhrase} ${basePhrase}`;
+        
         const utterance = new SpeechSynthesisUtterance(phrase);
         utterance.lang = 'es-ES';
         utterance.rate = 1.0;
@@ -1123,11 +1128,19 @@ const AdminDashboardScreen: React.FC<{
   }, []);
 
   useEffect(() => {
-    const pendingCount = billRequests.filter(r => r.status === 'PENDING').length;
-    if (pendingCount > prevPendingBillsRef.current) {
-      playNotificationSound();
+    const pendingBills = billRequests.filter(r => r.status === 'PENDING');
+    const pendingIds = pendingBills.map(b => b.id);
+    
+    // Find new bills that weren't in the previous list
+    const newBills = pendingBills.filter(b => !prevPendingBillsRef.current.includes(b.id));
+    
+    if (newBills.length > 0) {
+      // Just play for the latest one
+      const latestBill = newBills[0];
+      playNotificationSound(latestBill.tableNumber, latestBill.location);
     }
-    prevPendingBillsRef.current = pendingCount;
+    
+    prevPendingBillsRef.current = pendingIds;
   }, [billRequests, playNotificationSound]);
 
   // Filter and sort orders
