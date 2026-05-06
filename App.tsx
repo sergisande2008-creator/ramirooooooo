@@ -52,6 +52,7 @@ import { handleFirestoreError, OperationType } from './firebaseUtils';
 import { signInAnonymously } from 'firebase/auth';
 import { Language, UI_TRANSLATIONS, MENU_TRANSLATIONS } from './translations';
 import { CashCalculator } from './CashCalculator';
+import { motion, AnimatePresence } from 'motion/react';
 
 // --- CONFIGURATION ---
 
@@ -84,6 +85,7 @@ const sendWebhook = async (url: string, order: Order) => {
 
     await fetch(url, {
       method: 'POST',
+      mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
@@ -107,7 +109,12 @@ const LandingScreen: React.FC<{
     {/* Fondo sutil */}
     <div className="absolute top-[-20%] left-[-20%] w-[140%] h-[140%] bg-[#f5f2ed]/5 blur-[120px] pointer-events-none" />
     
-    <div className="w-full max-w-[340px] bg-[#13100b] rounded-[32px] p-8 border border-white/5 flex flex-col items-center shadow-2xl relative z-10">
+    <motion.div 
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8, ease: "easeOut" }}
+      className="w-full max-w-[340px] bg-[#13100b] rounded-[32px] p-8 border border-white/5 flex flex-col items-center shadow-2xl relative z-10"
+    >
         
        {/* Brillo decorativo superior */}
        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-24 bg-[#ccc1ab]/5 blur-[50px] rounded-full pointer-events-none"></div>
@@ -116,20 +123,40 @@ const LandingScreen: React.FC<{
        <div className="flex flex-col items-center w-full relative z-10 py-4">
           
           {/* Logo Box */}
-          <div className="w-[88px] h-[88px] bg-[#1a160f] rounded-[24px] flex items-center justify-center mb-8 border border-[#332c1e] shadow-xl">
+          <motion.div 
+            initial={{ scale: 0.8, rotate: -5 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
+            className="w-[88px] h-[88px] bg-[#1a160f] rounded-[24px] flex items-center justify-center mb-8 border border-[#332c1e] shadow-xl"
+          >
             <Utensils className="text-[#ccc1ab] w-10 h-10" strokeWidth={1} />
-          </div>
+          </motion.div>
           
           {/* Título */}
-          <h1 className="text-4xl font-serif font-black text-white mb-2 tracking-wide">
+          <motion.h1 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="text-4xl font-serif font-black text-white mb-2 tracking-wide"
+          >
             NEVADA
-          </h1>
-          <p className="text-[#a39578] text-[11px] font-bold tracking-[0.35em] mb-12">
+          </motion.h1>
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+            className="text-[#a39578] text-[11px] font-bold tracking-[0.35em] mb-12"
+          >
             {t.premium_experience}
-          </p>
+          </motion.p>
 
           {/* Selector de idioma */}
-          <div className="flex gap-4 mb-8">
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.6 }}
+            className="flex gap-4 mb-8"
+          >
             <button 
               onClick={() => setLanguage('es')}
               className={`flex flex-col items-center gap-2 transition-all ${language === 'es' ? 'opacity-100 scale-110' : 'opacity-40 hover:opacity-80'}`}
@@ -151,19 +178,24 @@ const LandingScreen: React.FC<{
               <img src="https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcTAMcQflmNx6bt0zdTX1GlMwMlxBA09nrhgpbbhLn1LskueEVPkdqPLeZw3n_ujPzVVRiavP4R9JyVnxIasnvrmELvrMYQ7flVuo1pmOK6x3P7VumQfoGEbTeM2K5-8wZrJ1hCdgjwx9g&usqp=CAc" alt="English" className="w-8 h-6 object-cover rounded-sm shadow-sm" />
               <span className="text-[#f5f2ed] text-[8px] font-bold uppercase tracking-wider">English</span>
             </button>
-          </div>
+          </motion.div>
 
           {/* Botones */}
-          <div className="w-full space-y-3">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.7 }}
+            className="w-full space-y-3"
+          >
             <button 
               onClick={() => setCurrentScreen(Screen.LOCATION_SELECTION)} 
               className="w-full bg-[#1a160f] text-[#f5f2ed] border border-[#332c1e] h-14 rounded-xl text-[13px] font-bold uppercase tracking-widest hover:bg-[#332c1e] transition-all duration-300 flex items-center justify-center"
             >
               {t.enter_as_diner}
             </button>
-           </div>
+           </motion.div>
        </div>
-    </div>
+    </motion.div>
     <button 
       onClick={() => setCurrentScreen(Screen.CHEF_LOGIN)}
       className="absolute bottom-6 right-6 p-4 text-[#332c1e] hover:text-[#665a3f] transition-colors"
@@ -190,10 +222,28 @@ const LocationSelectionScreen: React.FC<{
     </div>
 
     <div className="flex-1 flex flex-col items-center">
-      <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">{t.location}</h2>
-      <p className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-12">{t.where_to_sit}</p>
+      <motion.h2 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-4xl font-serif font-black text-slate-900 mb-2"
+      >
+        {t.location}
+      </motion.h2>
+      <motion.p 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1 }}
+        className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-12"
+      >
+        {t.where_to_sit}
+      </motion.p>
 
-      <div className="grid grid-cols-1 gap-6 w-full max-w-sm">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.2 }}
+        className="grid grid-cols-1 gap-6 w-full max-w-sm"
+      >
         <button
           onClick={() => {
             setSelectedLocation('DENTRO');
@@ -225,7 +275,7 @@ const LocationSelectionScreen: React.FC<{
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t.outside_desc}</span>
           </div>
         </button>
-      </div>
+      </motion.div>
     </div>
   </div>
 );
@@ -248,13 +298,29 @@ const TableSelectionScreen: React.FC<{
     </div>
 
     <div className="flex-1 flex flex-col items-center">
-      <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">{t.table_label}</h2>
-      <p className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-12">{t.zone} {selectedLocation === 'DENTRO' ? t.inside : t.outside}</p>
+      <motion.h2 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-4xl font-serif font-black text-slate-900 mb-2"
+      >
+        {t.table_label}
+      </motion.h2>
+      <motion.p 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1 }}
+        className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-12"
+      >
+        {t.zone} {selectedLocation === 'DENTRO' ? t.inside : t.outside}
+      </motion.p>
 
       <div className="grid grid-cols-2 gap-6 w-full max-w-sm">
-        {TABLES.map((table) => (
-          <button
+        {TABLES.map((table, i) => (
+          <motion.button
             key={table}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.05 + 0.1, type: 'spring', stiffness: 200 }}
             onClick={() => {
               setSelectedTable(table);
               setCurrentScreen(Screen.GUEST_SELECTION);
@@ -264,7 +330,7 @@ const TableSelectionScreen: React.FC<{
             <div className="absolute inset-0 bg-blue-50 opacity-0 group-hover:opacity-100 transition-opacity" />
             <span className="relative z-10 text-slate-300 text-xs font-bold mb-2 group-hover:text-blue-400">{t.number}</span>
             <span className="relative z-10 text-6xl font-black text-slate-900 group-hover:text-blue-600 transition-colors">{table}</span>
-          </button>
+          </motion.button>
         ))}
       </div>
     </div>
@@ -291,10 +357,28 @@ const GuestSelectionScreen: React.FC<{
     </div>
 
     <div className="flex-1 flex flex-col items-center justify-center -mt-20">
-      <h2 className="text-4xl font-serif font-black text-slate-900 mb-2">{t.guests}</h2>
-      <p className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-16">{selectedLocation === 'DENTRO' ? t.inside : t.outside} - {t.table} {selectedTable}</p>
+      <motion.h2 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-4xl font-serif font-black text-slate-900 mb-2"
+      >
+        {t.guests}
+      </motion.h2>
+      <motion.p 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1 }}
+        className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-16"
+      >
+        {selectedLocation === 'DENTRO' ? t.inside : t.outside} - {t.table} {selectedTable}
+      </motion.p>
 
-      <div className="flex items-center gap-12 mb-20">
+      <motion.div 
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", bounce: 0.5, delay: 0.2 }}
+        className="flex items-center gap-12 mb-20"
+      >
         <button 
           onClick={() => setGuestCount(Math.max(1, guestCount - 1))}
           className="w-16 h-16 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-400 hover:border-blue-500 hover:text-blue-600 active:scale-90 transition-all"
@@ -302,9 +386,15 @@ const GuestSelectionScreen: React.FC<{
           <Minus size={24} />
         </button>
         
-        <span className="text-9xl font-black text-slate-900 tabular-nums font-serif">
+        <motion.span 
+          key={guestCount}
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          className="text-9xl font-black text-slate-900 tabular-nums font-serif"
+        >
           {guestCount}
-        </span>
+        </motion.span>
 
         <button 
           onClick={() => setGuestCount(Math.min(10, guestCount + 1))}
@@ -312,15 +402,22 @@ const GuestSelectionScreen: React.FC<{
         >
           <Plus size={24} />
         </button>
-      </div>
+      </motion.div>
 
-      <Button 
-        fullWidth 
-        className="bg-slate-900 text-white max-w-xs shadow-xl shadow-slate-900/20"
-        onClick={() => setCurrentScreen(Screen.MENU)}
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.3 }}
+        className="w-full flex justify-center"
       >
-        {t.start}
-      </Button>
+        <Button 
+          fullWidth 
+          className="bg-slate-900 text-white max-w-xs shadow-xl shadow-slate-900/20"
+          onClick={() => setCurrentScreen(Screen.MENU)}
+        >
+          {t.start}
+        </Button>
+      </motion.div>
     </div>
   </div>
 );
@@ -475,18 +572,21 @@ const MenuScreen: React.FC<{
             )})}
           </div>
 
-          {/* Menu List */}
-          <div className="space-y-5">
-            {menuItems
-              .filter(item => selectedCategory === MenuCategory.ALL || item.category === selectedCategory)
-              .map((item) => {
-                const qty = getItemQuantity(item.id);
-                // Translate
-                const translatedItem = MENU_TRANSLATIONS[item.id]?.[language] || item;
-                const { name, description } = translatedItem;
+            {/* Menu List */}
+            <div className="space-y-5">
+              {menuItems
+                .filter(item => selectedCategory === MenuCategory.ALL || item.category === selectedCategory)
+                .map((item, i) => {
+                  const qty = getItemQuantity(item.id);
+                  // Translate
+                  const translatedItem = MENU_TRANSLATIONS[item.id]?.[language] || item;
+                  const { name, description } = translatedItem;
 
-                return (
-                  <div key={item.id} className={`bg-white p-3 rounded-[24px] shadow-sm border border-slate-100 flex gap-4 items-center group transition-transform duration-200 relative overflow-hidden ${item.outOfStock ? 'opacity-70' : 'active:scale-[0.98]'}`}>
+                  return (
+                    <div 
+                      key={item.id} 
+                      className={`bg-white p-3 rounded-[24px] shadow-sm border border-slate-100 flex gap-4 items-center group transition-transform duration-200 relative overflow-hidden ${item.outOfStock ? 'opacity-70' : 'active:scale-[0.98]'}`}
+                    >
                     
                     <div className="relative">
                       <img src={item.image} alt={name} className={`w-20 h-20 rounded-2xl object-cover shadow-md ${item.outOfStock ? 'grayscale' : ''}`} />
@@ -542,7 +642,7 @@ const MenuScreen: React.FC<{
                   </div>
                 );
               })}
-          </div>
+            </div>
         </>
       )}
       
@@ -841,9 +941,21 @@ const MenuScreen: React.FC<{
       );})()}
     </div>
 
+    <AnimatePresence>
     {orderSuccessMessage && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-        <div className="bg-white rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl flex flex-col items-center animate-in zoom-in-95 duration-500">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm"
+      >
+        <motion.div 
+          initial={{ scale: 0.9, y: 20 }}
+          animate={{ scale: 1, y: 0 }}
+          exit={{ scale: 0.9, y: 20 }}
+          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+          className="bg-white rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl flex flex-col items-center"
+        >
           <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mb-6">
             <CheckCircle className="text-green-500 w-10 h-10" />
           </div>
@@ -851,13 +963,26 @@ const MenuScreen: React.FC<{
           <p className="text-slate-500 leading-relaxed text-sm font-medium">
             {t.prepare_order}
           </p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     )}
+    </AnimatePresence>
 
+    <AnimatePresence>
     {billSuccessMessage && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-        <div className="bg-white rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl flex flex-col items-center animate-in zoom-in-95 duration-500">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm"
+      >
+        <motion.div 
+          initial={{ scale: 0.9, y: 20 }}
+          animate={{ scale: 1, y: 0 }}
+          exit={{ scale: 0.9, y: 20 }}
+          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+          className="bg-white rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl flex flex-col items-center"
+        >
           <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6">
             <Receipt className="text-blue-500 w-10 h-10" />
           </div>
@@ -865,9 +990,10 @@ const MenuScreen: React.FC<{
           <p className="text-slate-500 leading-relaxed text-sm font-medium">
             {t.bill_success_desc}
           </p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     )}
+    </AnimatePresence>
 
   </div>
 );
@@ -1272,12 +1398,29 @@ const AdminDashboardScreen: React.FC<{
               <head>
                   <title>Ticket Mesa ${tableNumber}</title>
                   <style>
-                      body { font-family: monospace; padding: 20px; max-width: 300px; margin: 0 auto; color: black; background: white; white-space: pre-wrap; font-size: 14px; }
-                      .header { text-align: center; margin-bottom: 20px; border-bottom: 1px dashed black; padding-bottom: 10px; }
-                      .items { margin-bottom: 20px; border-bottom: 1px dashed black; padding-bottom: 10px; }
+                      @page {
+                          margin: 0;
+                          size: 80mm auto;
+                      }
+                      body { 
+                          font-family: 'Courier New', Courier, monospace; 
+                          width: 80mm; 
+                          margin: 0; 
+                          padding: 5mm; 
+                          color: black; 
+                          font-size: 12px; 
+                          box-sizing: border-box; 
+                      }
+                      .header { text-align: center; margin-bottom: 10px; border-bottom: 1px dashed black; padding-bottom: 5px; }
+                      .items { margin-bottom: 10px; border-bottom: 1px dashed black; padding-bottom: 5px; }
                       .total { display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2em; }
                       @media print {
-                          body { width: 100%; margin: 0; padding: 0; }
+                          body { padding: 5mm; }
+                          html, body {
+                              width: 80mm;
+                              margin: 0;
+                              padding: 0;
+                          }
                       }
                   </style>
               </head>
@@ -2134,83 +2277,101 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="antialiased font-sans text-slate-900 select-none bg-slate-50">
-      {currentScreen === Screen.LANDING && (
-        <LandingScreen setCurrentScreen={setCurrentScreen} setChefPin={setChefPin} language={language} setLanguage={setLanguage} />
-      )}
-      {currentScreen === Screen.LOCATION_SELECTION && (
-        <LocationSelectionScreen setCurrentScreen={setCurrentScreen} setSelectedLocation={setSelectedLocation} language={language} />
-      )}
-      {currentScreen === Screen.TABLE_SELECTION && (
-        <TableSelectionScreen 
-          setCurrentScreen={setCurrentScreen} 
-          setSelectedTable={setSelectedTable} 
-          selectedLocation={selectedLocation} 
-          language={language}
-        />
-      )}
-      {currentScreen === Screen.GUEST_SELECTION && (
-        <GuestSelectionScreen 
-          setCurrentScreen={setCurrentScreen} 
-          guestCount={guestCount} 
-          setGuestCount={setGuestCount} 
-          selectedLocation={selectedLocation}
-          selectedTable={selectedTable}
-          language={language}
-        />
-      )}
-      {currentScreen === Screen.MENU && (
-        <MenuScreen 
-          setCurrentScreen={setCurrentScreen}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          cart={cart}
-          addToCart={addToCart}
-          removeFromCart={removeFromCart}
-          getCartTotal={getCartTotal}
-          getItemQuantity={getItemQuantity}
-          handleSendOrder={handleSendOrder}
-          handleRequestBill={handleRequestBill}
-          selectedCategory={selectedCategory}
-          setSelectedCategory={setSelectedCategory}
-          selectedLocation={selectedLocation}
-          selectedTable={selectedTable}
-          guestCount={guestCount}
-          orderSuccessMessage={orderSuccessMessage}
-          billSuccessMessage={billSuccessMessage}
-          language={language}
-          menuItems={menuItems}
-          hasActiveOrders={orders.some(o => o.location === selectedLocation && o.tableNumber === selectedTable && !o.paid)}
-          orders={orders}
-          billRequests={billRequests}
-        />
-      )}
-      {currentScreen === Screen.CHEF_LOGIN && (
-        <ChefLoginScreen 
-          setCurrentScreen={setCurrentScreen}
-          chefPin={chefPin}
-          setChefPin={setChefPin}
-        />
-      )}
-      {currentScreen === Screen.KITCHEN_DASHBOARD && (
-        <KitchenDashboardScreen 
-          setCurrentScreen={setCurrentScreen}
-          orders={orders}
-          updateOrderStatus={updateOrderStatus}
-        />
-      )}
-      {currentScreen === Screen.ADMIN_DASHBOARD && (
-        <AdminDashboardScreen 
-          setCurrentScreen={setCurrentScreen}
-          orders={orders}
-          updateOrderStatus={updateOrderStatus}
-          clearOrders={clearOrders}
-          menuItems={menuItems}
-          updateMenuItem={updateMenuItem}
-          billRequests={billRequests}
-          updateBillStatus={updateBillStatus}
-        />
-      )}
+    <div className="antialiased font-sans text-slate-900 select-none bg-slate-50 relative overflow-hidden min-h-screen">
+      <AnimatePresence mode="wait">
+        {currentScreen === Screen.LANDING && (
+          <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="absolute inset-0">
+            <LandingScreen setCurrentScreen={setCurrentScreen} setChefPin={setChefPin} language={language} setLanguage={setLanguage} />
+          </motion.div>
+        )}
+        {currentScreen === Screen.LOCATION_SELECTION && (
+          <motion.div key="location" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }} className="absolute inset-0">
+            <LocationSelectionScreen setCurrentScreen={setCurrentScreen} setSelectedLocation={setSelectedLocation} language={language} />
+          </motion.div>
+        )}
+        {currentScreen === Screen.TABLE_SELECTION && (
+          <motion.div key="table" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }} className="absolute inset-0">
+            <TableSelectionScreen 
+              setCurrentScreen={setCurrentScreen} 
+              setSelectedTable={setSelectedTable} 
+              selectedLocation={selectedLocation} 
+              language={language}
+            />
+          </motion.div>
+        )}
+        {currentScreen === Screen.GUEST_SELECTION && (
+          <motion.div key="guest" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }} className="absolute inset-0">
+            <GuestSelectionScreen 
+              setCurrentScreen={setCurrentScreen} 
+              guestCount={guestCount} 
+              setGuestCount={setGuestCount} 
+              selectedLocation={selectedLocation}
+              selectedTable={selectedTable}
+              language={language}
+            />
+          </motion.div>
+        )}
+        {currentScreen === Screen.MENU && (
+          <motion.div key="menu-screen" initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -50 }} transition={{ duration: 0.3 }} className="absolute inset-0 overflow-y-auto">
+            <MenuScreen 
+              setCurrentScreen={setCurrentScreen}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              cart={cart}
+              addToCart={addToCart}
+              removeFromCart={removeFromCart}
+              getCartTotal={getCartTotal}
+              getItemQuantity={getItemQuantity}
+              handleSendOrder={handleSendOrder}
+              handleRequestBill={handleRequestBill}
+              selectedCategory={selectedCategory}
+              setSelectedCategory={setSelectedCategory}
+              selectedLocation={selectedLocation}
+              selectedTable={selectedTable}
+              guestCount={guestCount}
+              orderSuccessMessage={orderSuccessMessage}
+              billSuccessMessage={billSuccessMessage}
+              language={language}
+              menuItems={menuItems}
+              hasActiveOrders={orders.some(o => o.location === selectedLocation && o.tableNumber === selectedTable && !o.paid)}
+              orders={orders}
+              billRequests={billRequests}
+            />
+          </motion.div>
+        )}
+        {currentScreen === Screen.CHEF_LOGIN && (
+          <motion.div key="chef-login" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ duration: 0.3 }} className="absolute inset-0">
+            <ChefLoginScreen 
+              setCurrentScreen={setCurrentScreen}
+              chefPin={chefPin}
+              setChefPin={setChefPin}
+            />
+          </motion.div>
+        )}
+        {currentScreen === Screen.KITCHEN_DASHBOARD && (
+          <motion.div key="kitchen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="absolute inset-0 overflow-y-auto">
+            <KitchenDashboardScreen 
+              setCurrentScreen={setCurrentScreen}
+              orders={orders}
+              updateOrderStatus={updateOrderStatus}
+            />
+          </motion.div>
+        )}
+        {currentScreen === Screen.ADMIN_DASHBOARD && (
+          <motion.div key="admin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="absolute inset-0 overflow-y-auto">
+            <AdminDashboardScreen 
+              setCurrentScreen={setCurrentScreen}
+              orders={orders}
+              updateOrderStatus={updateOrderStatus}
+              clearOrders={clearOrders}
+              menuItems={menuItems}
+              updateMenuItem={updateMenuItem}
+              billRequests={billRequests}
+              updateBillStatus={updateBillStatus}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
