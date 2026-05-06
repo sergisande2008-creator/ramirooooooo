@@ -2278,19 +2278,19 @@ const App: React.FC = () => {
 
   return (
     <div className="antialiased font-sans text-slate-900 select-none bg-slate-50 relative overflow-hidden min-h-screen">
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="popLayout">
         {currentScreen === Screen.LANDING && (
-          <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="absolute inset-0">
+          <motion.div key="landing" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="absolute inset-0">
             <LandingScreen setCurrentScreen={setCurrentScreen} setChefPin={setChefPin} language={language} setLanguage={setLanguage} />
           </motion.div>
         )}
         {currentScreen === Screen.LOCATION_SELECTION && (
-          <motion.div key="location" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }} className="absolute inset-0">
+          <motion.div key="location" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="absolute inset-0">
             <LocationSelectionScreen setCurrentScreen={setCurrentScreen} setSelectedLocation={setSelectedLocation} language={language} />
           </motion.div>
         )}
         {currentScreen === Screen.TABLE_SELECTION && (
-          <motion.div key="table" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }} className="absolute inset-0">
+          <motion.div key="table" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="absolute inset-0">
             <TableSelectionScreen 
               setCurrentScreen={setCurrentScreen} 
               setSelectedTable={setSelectedTable} 
@@ -2300,7 +2300,7 @@ const App: React.FC = () => {
           </motion.div>
         )}
         {currentScreen === Screen.GUEST_SELECTION && (
-          <motion.div key="guest" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }} className="absolute inset-0">
+          <motion.div key="guest" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="absolute inset-0">
             <GuestSelectionScreen 
               setCurrentScreen={setCurrentScreen} 
               guestCount={guestCount} 
@@ -2312,7 +2312,7 @@ const App: React.FC = () => {
           </motion.div>
         )}
         {currentScreen === Screen.MENU && (
-          <motion.div key="menu-screen" initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -50 }} transition={{ duration: 0.3 }} className="absolute inset-0 overflow-y-auto">
+          <motion.div key="menu-screen" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 15 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="absolute inset-0 overflow-y-auto w-full h-full">
             <MenuScreen 
               setCurrentScreen={setCurrentScreen}
               activeTab={activeTab}
@@ -2340,7 +2340,7 @@ const App: React.FC = () => {
           </motion.div>
         )}
         {currentScreen === Screen.CHEF_LOGIN && (
-          <motion.div key="chef-login" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ duration: 0.3 }} className="absolute inset-0">
+          <motion.div key="chef-login" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="absolute inset-0">
             <ChefLoginScreen 
               setCurrentScreen={setCurrentScreen}
               chefPin={chefPin}
@@ -2349,7 +2349,7 @@ const App: React.FC = () => {
           </motion.div>
         )}
         {currentScreen === Screen.KITCHEN_DASHBOARD && (
-          <motion.div key="kitchen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="absolute inset-0 overflow-y-auto">
+          <motion.div key="kitchen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="absolute inset-0 overflow-y-auto">
             <KitchenDashboardScreen 
               setCurrentScreen={setCurrentScreen}
               orders={orders}
@@ -2358,7 +2358,7 @@ const App: React.FC = () => {
           </motion.div>
         )}
         {currentScreen === Screen.ADMIN_DASHBOARD && (
-          <motion.div key="admin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="absolute inset-0 overflow-y-auto">
+          <motion.div key="admin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="absolute inset-0 overflow-y-auto">
             <AdminDashboardScreen 
               setCurrentScreen={setCurrentScreen}
               orders={orders}
