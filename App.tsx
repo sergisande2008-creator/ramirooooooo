@@ -124,9 +124,9 @@ const LandingScreen: React.FC<{
           
           {/* Logo Box */}
           <motion.div 
-            initial={{ scale: 0.8, rotate: -5 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.3, ease: "easeOut", delay: 0.2 }}
             className="w-[88px] h-[88px] bg-[#1a160f] rounded-[24px] flex items-center justify-center mb-8 border border-[#332c1e] shadow-xl"
           >
             <Utensils className="text-[#ccc1ab] w-10 h-10" strokeWidth={1} />
@@ -239,9 +239,9 @@ const LocationSelectionScreen: React.FC<{
       </motion.p>
 
       <motion.div 
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.2 }}
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
         className="grid grid-cols-1 gap-6 w-full max-w-sm"
       >
         <button
@@ -318,9 +318,9 @@ const TableSelectionScreen: React.FC<{
         {TABLES.map((table, i) => (
           <motion.button
             key={table}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: i * 0.05 + 0.1, type: 'spring', stiffness: 200 }}
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut", delay: i * 0.03 }}
             onClick={() => {
               setSelectedTable(table);
               setCurrentScreen(Screen.GUEST_SELECTION);
@@ -374,9 +374,9 @@ const GuestSelectionScreen: React.FC<{
       </motion.p>
 
       <motion.div 
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: "spring", bounce: 0.5, delay: 0.2 }}
+        initial={{ scale: 0.95, opacity: 0, y: 10 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
         className="flex items-center gap-12 mb-20"
       >
         <button 
@@ -388,9 +388,9 @@ const GuestSelectionScreen: React.FC<{
         
         <motion.span 
           key={guestCount}
-          initial={{ scale: 0.5, opacity: 0 }}
+          initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
           className="text-9xl font-black text-slate-900 tabular-nums font-serif"
         >
           {guestCount}
@@ -407,7 +407,7 @@ const GuestSelectionScreen: React.FC<{
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
+        transition={{ duration: 0.3, ease: "easeOut", delay: 0.2 }}
         className="w-full flex justify-center"
       >
         <Button 
