@@ -4,6 +4,57 @@ import { Screen, MenuCategory, MenuItem, CartItem, Order, OrderStatus, BillReque
 import { MENU_ITEMS, TABLES } from './constants';
 // Import from root ./Button
 import { Button } from './Button';
+
+const playTone = (type: 'pop' | 'success') => {
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    
+    if (type === 'pop') {
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.04);
+      
+      gainNode.gain.setValueAtTime(0.05, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+      
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.04);
+    } else if (type === 'success') {
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      osc1.connect(gainNode);
+      osc2.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      osc1.type = 'sine';
+      osc2.type = 'sine';
+      
+      osc1.frequency.setValueAtTime(880, ctx.currentTime); 
+      osc2.frequency.setValueAtTime(1760, ctx.currentTime);
+      
+      gainNode.gain.setValueAtTime(0, ctx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      
+      osc1.start(ctx.currentTime);
+      osc2.start(ctx.currentTime);
+      osc1.stop(ctx.currentTime + 0.6);
+      osc2.stop(ctx.currentTime + 0.6);
+    }
+  } catch (e) {
+    // Ignore audio errors
+  }
+};
+
 import { 
   Utensils, 
   ChefHat, 
@@ -222,26 +273,18 @@ const LocationSelectionScreen: React.FC<{
     </div>
 
     <div className="flex-1 flex flex-col items-center">
-      <motion.h2 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
+      <h2 
         className="text-4xl font-serif font-black text-slate-900 mb-2"
       >
         {t.location}
-      </motion.h2>
-      <motion.p 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
+      </h2>
+      <p 
         className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-12"
       >
         {t.where_to_sit}
-      </motion.p>
+      </p>
 
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
+      <div 
         className="grid grid-cols-1 gap-6 w-full max-w-sm"
       >
         <button
@@ -275,7 +318,7 @@ const LocationSelectionScreen: React.FC<{
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t.outside_desc}</span>
           </div>
         </button>
-      </motion.div>
+      </div>
     </div>
   </div>
 );
@@ -349,26 +392,18 @@ const GuestSelectionScreen: React.FC<{
     </div>
 
     <div className="flex-1 flex flex-col items-center justify-center -mt-20">
-      <motion.h2 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
+      <h2 
         className="text-4xl font-serif font-black text-slate-900 mb-2"
       >
         {t.guests}
-      </motion.h2>
-      <motion.p 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
+      </h2>
+      <p 
         className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-16"
       >
         {selectedLocation === 'DENTRO' ? t.inside : t.outside} - {t.table} {selectedTable}
-      </motion.p>
+      </p>
 
-      <motion.div 
-        initial={{ scale: 0.95, opacity: 0, y: 10 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
+      <div 
         className="flex items-center gap-12 mb-20"
       >
         <button 
@@ -378,15 +413,12 @@ const GuestSelectionScreen: React.FC<{
           <Minus size={24} />
         </button>
         
-        <motion.span 
+        <span 
           key={guestCount}
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          className="text-9xl font-black text-slate-900 tabular-nums font-serif"
+          className="text-9xl font-black text-slate-900 tabular-nums font-serif transition-colors"
         >
           {guestCount}
-        </motion.span>
+        </span>
 
         <button 
           onClick={() => setGuestCount(Math.min(10, guestCount + 1))}
@@ -394,12 +426,9 @@ const GuestSelectionScreen: React.FC<{
         >
           <Plus size={24} />
         </button>
-      </motion.div>
+      </div>
 
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.3, ease: "easeOut", delay: 0.2 }}
+      <div
         className="w-full flex justify-center"
       >
         <Button 
@@ -409,7 +438,7 @@ const GuestSelectionScreen: React.FC<{
         >
           {t.start}
         </Button>
-      </motion.div>
+      </div>
     </div>
   </div>
 );
@@ -2066,6 +2095,7 @@ const App: React.FC = () => {
 
   // Cart Logic
   const addToCart = (item: MenuItem) => {
+    playTone('pop');
     setCart(prev => {
       const existing = prev.find(i => i.id === item.id);
       if (existing) {
@@ -2122,6 +2152,7 @@ const App: React.FC = () => {
     
     setCart([]);
     
+    playTone('success');
     setOrderSuccessMessage(true);
     setTimeout(() => {
         setOrderSuccessMessage(false);
@@ -2157,6 +2188,7 @@ const App: React.FC = () => {
 
     try {
       await setDoc(doc(db, 'bills', newBillId), newBill);
+      playTone('success');
       setBillSuccessMessage(true);
       setTimeout(() => {
         setBillSuccessMessage(false);
