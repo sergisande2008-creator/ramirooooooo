@@ -5,7 +5,7 @@ import { MENU_ITEMS, TABLES } from './constants';
 // Import from root ./Button
 import { Button } from './Button';
 
-const playTone = (type: 'pop' | 'success') => {
+const playTone = (type: 'pop' | 'success' | 'bells') => {
   try {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContext) return;
@@ -49,6 +49,27 @@ const playTone = (type: 'pop' | 'success') => {
       osc2.start(ctx.currentTime);
       osc1.stop(ctx.currentTime + 0.6);
       osc2.stop(ctx.currentTime + 0.6);
+    } else if (type === 'bells') {
+      const playBell = (freq: number, delay: number) => {
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+        
+        gainNode.gain.setValueAtTime(0, ctx.currentTime + delay);
+        gainNode.gain.linearRampToValueAtTime(0.1, ctx.currentTime + delay + 0.02);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.8);
+        
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + 0.8);
+      };
+
+      playBell(1046.50, 0); // C6
+      playBell(1318.51, 0.15); // E6
+      playBell(1567.98, 0.3); // G6
     }
   } catch (e) {
     // Ignore audio errors
@@ -1100,6 +1121,19 @@ const KitchenDashboardScreen: React.FC<{
 }> = ({ setCurrentScreen, orders, updateOrderStatus }) => {
   const activeOrders = orders.filter(o => o.status !== OrderStatus.COMPLETED);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  
+  const previousPendingIds = useRef(new Set(orders.filter(o => o.status === OrderStatus.PENDING).map(o => o.id)));
+
+  useEffect(() => {
+    const currentPendingIds = new Set(orders.filter(o => o.status === OrderStatus.PENDING).map(o => o.id));
+    const isNewOrder = [...currentPendingIds].some(id => !previousPendingIds.current.has(id));
+    
+    if (isNewOrder) {
+      playTone('bells');
+    }
+    
+    previousPendingIds.current = currentPendingIds;
+  }, [orders]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);

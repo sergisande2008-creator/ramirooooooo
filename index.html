@@ -83,6 +83,34 @@
         -ms-overflow-style: none;
         scrollbar-width: none;
       }
+
+      /* Luxury Noise Background */
+      body {
+        position: relative;
+        background-color: #f5f2ed;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        pointer-events: none;
+        background-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+        opacity: 0.03;
+        z-index: 9999;
+      }
+
+      /* Refine serif typography globally */
+      .font-serif.font-black {
+        font-weight: 400 !important;
+        letter-spacing: 0.05em;
+        text-transform: none;
+      }
+      .font-serif {
+        letter-spacing: 0.02em;
+      }
     </style>
   <script type="importmap">
 {
