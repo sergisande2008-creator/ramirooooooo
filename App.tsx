@@ -298,29 +298,21 @@ const TableSelectionScreen: React.FC<{
     </div>
 
     <div className="flex-1 flex flex-col items-center">
-      <motion.h2 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
+      <h2 
         className="text-4xl font-serif font-black text-slate-900 mb-2"
       >
         {t.table_label}
-      </motion.h2>
-      <motion.p 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
+      </h2>
+      <p 
         className="text-blue-600 font-bold text-sm tracking-widest uppercase mb-12"
       >
         {t.zone} {selectedLocation === 'DENTRO' ? t.inside : t.outside}
-      </motion.p>
+      </p>
 
       <div className="grid grid-cols-2 gap-6 w-full max-w-sm">
         {TABLES.map((table, i) => (
-          <motion.button
+          <button
             key={table}
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: "easeOut", delay: i * 0.03 }}
             onClick={() => {
               setSelectedTable(table);
               setCurrentScreen(Screen.GUEST_SELECTION);
@@ -330,7 +322,7 @@ const TableSelectionScreen: React.FC<{
             <div className="absolute inset-0 bg-blue-50 opacity-0 group-hover:opacity-100 transition-opacity" />
             <span className="relative z-10 text-slate-300 text-xs font-bold mb-2 group-hover:text-blue-400">{t.number}</span>
             <span className="relative z-10 text-6xl font-black text-slate-900 group-hover:text-blue-600 transition-colors">{table}</span>
-          </motion.button>
+          </button>
         ))}
       </div>
     </div>
