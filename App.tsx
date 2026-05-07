@@ -5,11 +5,39 @@ import { MENU_ITEMS, TABLES } from './constants';
 // Import from root ./Button
 import { Button } from './Button';
 
-const playTone = (type: 'pop' | 'success' | 'bells') => {
+let sharedAudioContext: AudioContext | null = null;
+const initAudio = () => {
   try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
+    if (!sharedAudioContext) {
+      const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+      if (Ctx) {
+        sharedAudioContext = new Ctx();
+      }
+    }
+    if (sharedAudioContext && sharedAudioContext.state === 'suspended') {
+      sharedAudioContext.resume();
+    }
+    return sharedAudioContext;
+  } catch (e) {
+    return null;
+  }
+};
+
+// Initialize silently on first interaction to allow notifications later
+if (typeof window !== 'undefined') {
+  const unlockAudio = () => {
+    initAudio();
+    window.removeEventListener('click', unlockAudio);
+    window.removeEventListener('touchstart', unlockAudio);
+  };
+  window.addEventListener('click', unlockAudio);
+  window.addEventListener('touchstart', unlockAudio);
+}
+
+const playTone = (type: 'pop' | 'bells') => {
+  try {
+    const ctx = initAudio();
+    if (!ctx) return;
     
     if (type === 'pop') {
       const osc = ctx.createOscillator();
@@ -26,29 +54,6 @@ const playTone = (type: 'pop' | 'success' | 'bells') => {
       
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.04);
-    } else if (type === 'success') {
-      const osc1 = ctx.createOscillator();
-      const osc2 = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      
-      osc1.connect(gainNode);
-      osc2.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      
-      osc1.type = 'sine';
-      osc2.type = 'sine';
-      
-      osc1.frequency.setValueAtTime(880, ctx.currentTime); 
-      osc2.frequency.setValueAtTime(1760, ctx.currentTime);
-      
-      gainNode.gain.setValueAtTime(0, ctx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.05);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
-      
-      osc1.start(ctx.currentTime);
-      osc2.start(ctx.currentTime);
-      osc1.stop(ctx.currentTime + 0.6);
-      osc2.stop(ctx.currentTime + 0.6);
     } else if (type === 'bells') {
       const playBell = (freq: number, delay: number) => {
         const osc = ctx.createOscillator();
@@ -2186,7 +2191,6 @@ const App: React.FC = () => {
     
     setCart([]);
     
-    playTone('success');
     setOrderSuccessMessage(true);
     setTimeout(() => {
         setOrderSuccessMessage(false);
@@ -2222,7 +2226,6 @@ const App: React.FC = () => {
 
     try {
       await setDoc(doc(db, 'bills', newBillId), newBill);
-      playTone('success');
       setBillSuccessMessage(true);
       setTimeout(() => {
         setBillSuccessMessage(false);
