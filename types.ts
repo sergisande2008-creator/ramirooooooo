@@ -3,6 +3,7 @@ export enum Screen {
   LOCATION_SELECTION = 'LOCATION_SELECTION',
   TABLE_SELECTION = 'TABLE_SELECTION',
   GUEST_SELECTION = 'GUEST_SELECTION',
+  ALLERGIES_SELECTION = 'ALLERGIES_SELECTION',
   MENU = 'MENU',
   CHEF_LOGIN = 'CHEF_LOGIN',
   KITCHEN_DASHBOARD = 'KITCHEN_DASHBOARD',
@@ -26,6 +27,7 @@ export interface MenuItem {
   category: MenuCategory;
   image: string;
   outOfStock?: boolean;
+  allergens?: string[];
 }
 
 export interface CartItem extends MenuItem {
@@ -66,4 +68,5 @@ export interface Order {
   completedTimestamp?: number; // Kitchen completion time
   total: number;
   paid?: boolean;
+  allergies?: string;
 }

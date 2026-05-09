@@ -96,6 +96,7 @@ import {
   Send,
   X,
   CheckCircle,
+  AlertCircle,
   Clock,
   Trash2,
   Bell,
@@ -460,7 +461,7 @@ const GuestSelectionScreen: React.FC<{
         <Button 
           fullWidth 
           className="bg-slate-900 text-white max-w-xs shadow-xl shadow-slate-900/20"
-          onClick={() => setCurrentScreen(Screen.MENU)}
+          onClick={() => setCurrentScreen(Screen.ALLERGIES_SELECTION)}
         >
           {t.start}
         </Button>
@@ -468,6 +469,51 @@ const GuestSelectionScreen: React.FC<{
     </div>
   </div>
 );
+};
+
+// 4.5 Allergies Selection
+const AllergiesSelectionScreen: React.FC<{
+  setCurrentScreen: (s: Screen) => void;
+  userAllergies: string;
+  setUserAllergies: (a: string) => void;
+  language: Language;
+}> = ({ setCurrentScreen, userAllergies, setUserAllergies, language }) => {
+  const t = UI_TRANSLATIONS[language];
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col p-6">
+      <div className="flex items-center mb-8 pt-4 relative z-20">
+        <button onClick={() => setCurrentScreen(Screen.GUEST_SELECTION)} className="p-2 -ml-2 text-slate-400 hover:text-slate-900 transition-colors">
+          <ChevronLeft size={28} />
+        </button>
+      </div>
+
+      <div className="flex-1 flex flex-col items-center justify-center -mt-20 max-w-md mx-auto w-full">
+        <h2 className="text-4xl font-serif font-black text-slate-900 mb-2 text-center">
+          ¿Alguna alergia?
+        </h2>
+        <p className="text-slate-500 font-medium text-sm text-center mb-12">
+          Indica si algún comensal tiene alergias o intolerancias alimentarias para tenerlo en cuenta en tu comanda.
+        </p>
+
+        <textarea
+          value={userAllergies}
+          onChange={(e) => setUserAllergies(e.target.value)}
+          placeholder="Ej: Gluten, lactosa, frutos secos, marisco..."
+          className="w-full p-6 h-32 rounded-3xl bg-white border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none text-slate-800 placeholder:text-slate-400 font-medium text-lg mb-12"
+        />
+
+        <div className="w-full flex justify-center">
+          <Button 
+            fullWidth 
+            className="bg-slate-900 text-white max-w-xs shadow-xl shadow-slate-900/20"
+            onClick={() => setCurrentScreen(Screen.MENU)}
+          >
+            {userAllergies.trim() ? 'Continuar' : 'No hay alergias'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // 5. Menu & Order Screen
@@ -494,11 +540,12 @@ const MenuScreen: React.FC<{
   hasActiveOrders: boolean;
   orders: Order[];
   billRequests: BillRequest[];
+  userAllergies: string;
 }> = ({ 
   selectedLocation, selectedTable, guestCount, setCurrentScreen,
   activeTab, setActiveTab, cart, selectedCategory, setSelectedCategory,
   getItemQuantity, addToCart, removeFromCart, getCartTotal, handleSendOrder,
-  handleRequestBill, orderSuccessMessage, billSuccessMessage, language, menuItems, hasActiveOrders, orders, billRequests
+  handleRequestBill, orderSuccessMessage, billSuccessMessage, language, menuItems, hasActiveOrders, orders, billRequests, userAllergies
 }) => {
   const t = UI_TRANSLATIONS[language];
   const [splitMode, setSplitMode] = useState<'ALL' | 'SPLIT' | 'ITEMS'>('ALL');
@@ -629,10 +676,21 @@ const MenuScreen: React.FC<{
                   const translatedItem = MENU_TRANSLATIONS[item.id]?.[language] || item;
                   const { name, description } = translatedItem;
 
+                  const hasAllergyWarning = userAllergies.trim() && (() => {
+                    const words = userAllergies.toLowerCase().split(/[\s,]+/);
+                    return words.some(word => 
+                      word.length > 2 && (
+                        name.toLowerCase().includes(word) || 
+                        description.toLowerCase().includes(word) ||
+                        item.allergens?.some(a => a.toLowerCase().includes(word))
+                      )
+                    );
+                  })();
+
                   return (
                     <div 
                       key={item.id} 
-                      className={`bg-white p-3 rounded-[24px] shadow-sm border border-slate-100 flex gap-4 items-center group transition-transform duration-200 relative overflow-hidden ${item.outOfStock ? 'opacity-70' : 'active:scale-[0.98]'}`}
+                      className={`bg-white p-3 rounded-[24px] shadow-sm border ${hasAllergyWarning ? 'border-red-400 bg-red-50/50' : 'border-slate-100'} flex gap-4 items-center group transition-transform duration-200 relative overflow-hidden ${item.outOfStock ? 'opacity-70' : 'active:scale-[0.98]'}`}
                     >
                     
                     <div className="relative">
@@ -644,7 +702,14 @@ const MenuScreen: React.FC<{
                       )}
                     </div>
                     <div className="flex-1 min-w-0 py-1">
-                      <h3 className="font-serif font-bold text-slate-900 text-base mb-1 leading-tight">{name}</h3>
+                      <div className="flex justify-between items-start">
+                        <h3 className="font-serif font-bold text-slate-900 text-base mb-1 leading-tight">{name}</h3>
+                        {hasAllergyWarning && (
+                          <span className="shrink-0 bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded-md text-[10px] uppercase tracking-wider">
+                            Alerta Alergia
+                          </span>
+                        )}
+                      </div>
                       <p className="text-slate-400 text-xs line-clamp-2 mb-3 leading-relaxed">{description}</p>
                       <div className="flex items-center justify-between">
                         <span className="font-black text-slate-900 text-sm">{item.price.toFixed(2)}€</span>
@@ -1215,6 +1280,18 @@ const KitchenDashboardScreen: React.FC<{
                                       </span>
                                   </div>
                               </div>
+
+                              {order.allergies && (
+                                <div className="mb-6 bg-red-900/30 border border-red-500/30 p-3 rounded-xl flex items-start gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                                    <AlertCircle className="text-red-400 w-4 h-4" />
+                                  </div>
+                                  <div>
+                                    <h4 className="text-red-400 text-xs font-bold uppercase tracking-widest mb-1">Alerta Alergias</h4>
+                                    <p className="text-slate-200 text-sm font-medium">{order.allergies}</p>
+                                  </div>
+                                </div>
+                              )}
 
                               {/* Divider */}
                               <div className="h-px bg-white/10 w-full mb-6"></div>
@@ -2049,6 +2126,7 @@ const App: React.FC = () => {
   const [selectedLocation, setSelectedLocation] = useState<'DENTRO' | 'FUERA' | null>(null);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [guestCount, setGuestCount] = useState<number>(2);
+  const [userAllergies, setUserAllergies] = useState<string>('');
   const [cartsByTable, setCartsByTable] = useState<Record<string, CartItem[]>>({});
   
   const tableKey = `${selectedLocation}-${selectedTable}`;
@@ -2179,7 +2257,8 @@ const App: React.FC = () => {
       items: [...cart],
       status: OrderStatus.PENDING,
       timestamp: Date.now(),
-      total: getCartTotal()
+      total: getCartTotal(),
+      allergies: userAllergies.trim() ? userAllergies.trim() : undefined
     };
 
     try {
@@ -2372,6 +2451,16 @@ const App: React.FC = () => {
             />
           </motion.div>
         )}
+        {currentScreen === Screen.ALLERGIES_SELECTION && (
+          <motion.div key="allergies-screen" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="absolute inset-0">
+            <AllergiesSelectionScreen 
+              setCurrentScreen={setCurrentScreen}
+              userAllergies={userAllergies}
+              setUserAllergies={setUserAllergies}
+              language={language}
+            />
+          </motion.div>
+        )}
         {currentScreen === Screen.MENU && (
           <motion.div key="menu-screen" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 15 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="absolute inset-0 overflow-y-auto w-full h-full">
             <MenuScreen 
@@ -2397,6 +2486,7 @@ const App: React.FC = () => {
               hasActiveOrders={orders.some(o => o.location === selectedLocation && o.tableNumber === selectedTable && !o.paid)}
               orders={orders}
               billRequests={billRequests}
+              userAllergies={userAllergies}
             />
           </motion.div>
         )}
