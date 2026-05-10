@@ -106,6 +106,7 @@ import {
   CalendarDays,
   BarChart3,
   TrendingUp,
+  TrendingDown,
   ShoppingBag,
   Award,
   Users,
@@ -1495,8 +1496,57 @@ const AdminDashboardScreen: React.FC<{
   // Global totals
   const globalTotal = completedBills.reduce((sum, b) => sum + (b.total || 0), 0);
   
-  const totalGuests = orders.reduce((sum, o) => sum + (o.guestCount || 0), 0);
+  const guestSessions = new Set();
+  let totalGuests = 0;
+  orders.forEach(o => {
+     const sessionKey = `${o.location}-${o.tableNumber}-${new Date(o.timestamp).toDateString()}`;
+     if (!guestSessions.has(sessionKey)) {
+         guestSessions.add(sessionKey);
+         totalGuests += (o.guestCount || 0);
+     }
+  });
+
   const averageTicket = completedBills.length > 0 ? (globalTotal / completedBills.length) : 0;
+
+  const historicalHighlights = React.useMemo(() => {
+     const dailyEarnings: Record<string, number> = {};
+     completedBills.forEach(b => {
+         const dateObj = new Date(b.timestamp);
+         const date = `${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth()+1).toString().padStart(2, '0')}/${dateObj.getFullYear()}`;
+         dailyEarnings[date] = (dailyEarnings[date] || 0) + (b.total || 0);
+     });
+     
+     let bestDayEarning = { date: '-', amount: 0 };
+     let worstDayEarning = { date: '-', amount: Infinity };
+     
+     Object.entries(dailyEarnings).forEach(([date, amount]) => {
+         if (amount > bestDayEarning.amount) bestDayEarning = { date, amount };
+         if (amount < worstDayEarning.amount) worstDayEarning = { date, amount };
+     });
+     
+     if (worstDayEarning.amount === Infinity) worstDayEarning = { date: '-', amount: 0 };
+     
+     const dailyGuests: Record<string, { total: number, sessions: Set<string> }> = {};
+     orders.forEach(o => {
+         const dateObj = new Date(o.timestamp);
+         const date = `${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth()+1).toString().padStart(2, '0')}/${dateObj.getFullYear()}`;
+         if (!dailyGuests[date]) {
+             dailyGuests[date] = { total: 0, sessions: new Set() };
+         }
+         const sessionKey = `${o.location}-${o.tableNumber}`;
+         if (!dailyGuests[date].sessions.has(sessionKey)) {
+             dailyGuests[date].sessions.add(sessionKey);
+             dailyGuests[date].total += (o.guestCount || 0);
+         }
+     });
+
+     let bestDayGuests = { date: '-', count: 0 };
+     Object.entries(dailyGuests).forEach(([date, data]) => {
+         if (data.total > bestDayGuests.count) bestDayGuests = { date, count: data.total };
+     });
+
+     return { bestDayEarning, worstDayEarning, bestDayGuests };
+  }, [completedBills, orders]);
 
   const getTopProducts = (orderList: typeof orders) => {
       const productSales: Record<string, {name: string, quantity: number, total: number}> = {};
@@ -1865,7 +1915,7 @@ const AdminDashboardScreen: React.FC<{
                                   <TrendingUp className="text-blue-500" size={20} />
                                   Métricas Globales (Histórico)
                               </h3>
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                                   <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-center">
                                       <div className="text-slate-400 mb-2 flex items-center gap-2 text-sm font-medium"><ShoppingBag size={16}/> Comandas Totales</div>
                                       <div className="text-2xl font-black text-slate-900">{orders.length}</div>
@@ -1877,6 +1927,23 @@ const AdminDashboardScreen: React.FC<{
                                   <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-center">
                                       <div className="text-slate-400 mb-2 flex items-center gap-2 text-sm font-medium"><Users size={16}/> Total Comensales</div>
                                       <div className="text-2xl font-black text-slate-900">{totalGuests}</div>
+                                  </div>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-center">
+                                      <div className="text-slate-400 mb-2 flex items-center gap-2 text-sm font-medium"><TrendingUp size={16}/> Mejor Día (Ganancias)</div>
+                                      <div className="text-lg font-black text-emerald-700">{historicalHighlights.bestDayEarning.amount.toFixed(2)}€</div>
+                                      <div className="text-xs text-slate-500 font-medium">{historicalHighlights.bestDayEarning.date}</div>
+                                  </div>
+                                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-center">
+                                      <div className="text-slate-400 mb-2 flex items-center gap-2 text-sm font-medium"><TrendingDown size={16}/> Peor Día (Ganancias)</div>
+                                      <div className="text-lg font-black text-red-700">{historicalHighlights.worstDayEarning.amount.toFixed(2)}€</div>
+                                      <div className="text-xs text-slate-500 font-medium">{historicalHighlights.worstDayEarning.date}</div>
+                                  </div>
+                                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-center">
+                                      <div className="text-slate-400 mb-2 flex items-center gap-2 text-sm font-medium"><Users size={16}/> Día más concurrido</div>
+                                      <div className="text-lg font-black text-blue-700">{historicalHighlights.bestDayGuests.count} personas</div>
+                                      <div className="text-xs text-slate-500 font-medium">{historicalHighlights.bestDayGuests.date}</div>
                                   </div>
                               </div>
                           </div>
