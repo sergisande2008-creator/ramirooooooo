@@ -1,8 +1,58 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    function isValidId(id) { 
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    function incoming() { return request.resource.data; }
+    
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
+    }
+    
+    match /config/menu {
+       allow read: if true;
+       allow write: if incoming().keys().hasOnly(['items']) 
+                    && incoming().items is list 
+                    && incoming().items.size() <= 500;
+    }
+    
+    match /orders/{orderId} {
+       allow read, delete: if true;
+       allow create: if isValidId(orderId)
+          && incoming().keys().hasAll(['id', 'table', 'tableNumber', 'location', 'guestCount', 'status', 'timestamp', 'total', 'items'])
+          && incoming().id is string && incoming().table is string && incoming().tableNumber is string && incoming().location is string
+          && incoming().guestCount is number && incoming().status is string && incoming().timestamp is number && incoming().total is number
+          && incoming().items is list && incoming().items.size() <= 100
+          && incoming().guestCount >= 1 && incoming().guestCount <= 50
+          && incoming().status in ['PENDIENTE', 'COCINANDO', 'LISTO', 'COMPLETADO']
+          && (!('acceptedTimestamp' in incoming().keys()) || incoming().acceptedTimestamp is number || incoming().acceptedTimestamp == null)
+          && (!('completedTimestamp' in incoming().keys()) || incoming().completedTimestamp is number || incoming().completedTimestamp == null)
+          && (!('paid' in incoming().keys()) || incoming().paid is bool)
+          && (!('allergies' in incoming().keys()) || incoming().allergies is string);
+          
+       allow update: if 
+          (!('status' in incoming().keys()) || incoming().status in ['PENDIENTE', 'COCINANDO', 'LISTO', 'COMPLETADO'])
+          && (!('items' in incoming().keys()) || incoming().items is list && incoming().items.size() <= 100)
+          && (!('paid' in incoming().keys()) || incoming().paid is bool)
+          && (!('acceptedTimestamp' in incoming().keys()) || incoming().acceptedTimestamp is number || incoming().acceptedTimestamp == null)
+          && (!('completedTimestamp' in incoming().keys()) || incoming().completedTimestamp is number || incoming().completedTimestamp == null);
+    }
+    
+    match /bills/{billId} {
+       allow read, delete: if true;
+       allow create: if isValidId(billId)
+          && incoming().keys().hasAll(['id', 'table', 'tableNumber', 'location', 'timestamp', 'status', 'total'])
+          && incoming().id is string && incoming().table is string && incoming().tableNumber is string && incoming().location is string
+          && incoming().timestamp is number && incoming().status is string && incoming().total is number
+          && incoming().status in ['PENDING', 'COMPLETED']
+          && (!('paymentMethod' in incoming().keys()) || incoming().paymentMethod in ['CARD', 'CASH', 'ONLINE'])
+          && (!('splitWays' in incoming().keys()) || incoming().splitWays is number)
+          && (!('itemsToPay' in incoming().keys()) || incoming().itemsToPay is list);
+          
+       allow update: if 
+          (!('status' in incoming().keys()) || incoming().status in ['PENDING', 'COMPLETED']);
     }
   }
 }

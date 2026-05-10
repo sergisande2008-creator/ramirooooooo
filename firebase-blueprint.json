@@ -15,30 +15,50 @@
         "acceptedTimestamp": { "type": "number" },
         "completedTimestamp": { "type": "number" },
         "total": { "type": "number" },
-        "items": {
-          "type": "array",
-          "items": { "$ref": "#/entities/CartItem" }
-        }
+        "paid": { "type": "boolean" },
+        "allergies": { "type": "string" },
+        "items": { "type": "array" }
       },
       "required": ["id", "table", "tableNumber", "location", "guestCount", "status", "timestamp", "total", "items"]
     },
-    "CartItem": {
-      "title": "CartItem",
-      "description": "An item in an order",
+    "BillRequest": {
+      "title": "BillRequest",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "name": { "type": "string" },
-        "quantity": { "type": "number" },
-        "price": { "type": "number" }
+        "table": { "type": "string" },
+        "tableNumber": { "type": "string" },
+        "location": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "status": { "type": "string" },
+        "total": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "splitWays": { "type": "number" },
+        "itemsToPay": { "type": "array" }
       },
-      "required": ["id", "name", "quantity", "price"]
+      "required": ["id", "table", "tableNumber", "location", "timestamp", "status", "total"]
+    },
+    "MenuConfig": {
+       "title": "MenuConfig",
+       "type": "object",
+       "properties": {
+         "items": { "type": "array" }
+       },
+       "required": ["items"]
     }
   },
   "firestore": {
-    "/orders": {
+    "/orders/{orderId}": {
       "schema": "#/entities/Order",
-      "description": "All active and completed orders"
+      "description": "Customer orders"
+    },
+    "/bills/{billId}": {
+       "schema": "#/entities/BillRequest",
+       "description": "Requests to pay the bill"
+    },
+    "/config/menu": {
+       "schema": "#/entities/MenuConfig",
+       "description": "Menu Configuration"
     }
   }
 }

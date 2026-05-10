@@ -574,7 +574,7 @@ const MenuScreen: React.FC<{
       isFullyCovered = true;
   } else if (tablePendingBillsNow.some(b => !b.splitWays && !b.itemsToPay)) {
       isFullyCovered = true;
-  } else if (tablePendingBillsNow.some(b => b.splitWays === guestCount)) {
+  } else if (tablePendingBillsNow.filter(b => b.splitWays === guestCount).length >= guestCount) {
       isFullyCovered = true;
   } else {
       const itemsMap: Record<string, number> = {};
@@ -917,7 +917,8 @@ const MenuScreen: React.FC<{
              isFullyRequested = pendingBillsForTable.some(b => !b.splitWays && !b.itemsToPay);
         } else if (splitMode === 'SPLIT') {
              const splitBills = pendingBillsForTable.filter(b => b.splitWays === guestCount);
-             isFullyRequested = splitBills.length > 0;
+             isFullyRequested = splitBills.length >= guestCount;
+             currentGuestTurn = splitBills.length + 1;
         } else if (splitMode === 'ITEMS') {
              isFullyRequested = unpaidItemsList.length === 0 && activeOrders.length > 0;
              const itemBills = pendingBillsForTable.filter(b => b.itemsToPay && b.itemsToPay.length > 0);
@@ -2014,7 +2015,7 @@ const AdminDashboardScreen: React.FC<{
                                       let isFullyRequested = false;
                                       const firstSplitBill = tableBills.find(b => b.splitWays !== undefined);
                                       if (firstSplitBill) {
-                                          isFullyRequested = tableBills.length >= 1;
+                                          isFullyRequested = tableBills.length >= firstSplitBill.splitWays;
                                       } else {
                                           const activeTableOrders = orders.filter(o => o.location === location && o.tableNumber === tableNumber && !o.paid);
                                           let totalUnpaidQty = 0;
@@ -2072,7 +2073,7 @@ const AdminDashboardScreen: React.FC<{
                                                                    </div>
                                                                    {bill.splitWays && (
                                                                        <span className="text-xs text-slate-500 font-medium">
-                                                                           ({bill.splitWays} personas a {((bill.total || 0) / bill.splitWays).toFixed(2)}€ c/u)
+                                                                           (División equitativa entre {bill.splitWays} personas)
                                                                        </span>
                                                                    )}
                                                                </div>
@@ -2374,7 +2375,7 @@ const App: React.FC = () => {
       location: selectedLocation || 'DESCONOCIDO',
       timestamp: Date.now(),
       status: 'PENDING',
-      total: itemsToPay ? itemsToPay.reduce((s, i) => s + (i.price * i.quantity), 0) : tableTotal,
+      total: itemsToPay ? itemsToPay.reduce((s, i) => s + (i.price * i.quantity), 0) : (splitWays ? tableTotal / splitWays : tableTotal),
       paymentMethod: method
     };
     
@@ -2469,11 +2470,12 @@ const App: React.FC = () => {
                 });
              }
           } else if (bill.splitWays) {
-             // For split ways we just register the bill, we do NOT empty the table 
-             // unless it's the last split. It's complex to track 2/3 splits.
-             // We can just keep it unpaid until we add a "remaining balance" feature,
-             // or simply trust the waiter to know. Let's do nothing to `orders.paid` for 'SPLIT'
-             // so the table can ask for the next split.
+             const completedSplits = billRequests.filter(b => b.location === bill.location && b.tableNumber === bill.tableNumber && b.splitWays === bill.splitWays && b.status === 'COMPLETED').length + 1;
+             if (completedSplits >= bill.splitWays) {
+                 for (const order of tableOrders) {
+                    await updateDoc(doc(db, 'orders', order.id), { paid: true });
+                 }
+             }
           } else {
              // For ALL, mark all as paid
              for (const order of tableOrders) {
