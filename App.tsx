@@ -489,16 +489,16 @@ const AllergiesSelectionScreen: React.FC<{
 
       <div className="flex-1 flex flex-col items-center justify-center -mt-20 max-w-md mx-auto w-full">
         <h2 className="text-4xl font-serif font-black text-slate-900 mb-2 text-center">
-          ¿Alguna alergia?
+          {t.any_allergies}
         </h2>
         <p className="text-slate-500 font-medium text-sm text-center mb-12">
-          Indica si algún comensal tiene alergias o intolerancias alimentarias para tenerlo en cuenta en tu comanda.
+          {t.allergies_desc}
         </p>
 
         <textarea
           value={userAllergies}
           onChange={(e) => setUserAllergies(e.target.value)}
-          placeholder="Ej: Gluten, lactosa, frutos secos, marisco..."
+          placeholder={t.allergies_placeholder}
           className="w-full p-6 h-32 rounded-3xl bg-white border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none text-slate-800 placeholder:text-slate-400 font-medium text-lg mb-12"
         />
 
@@ -508,7 +508,7 @@ const AllergiesSelectionScreen: React.FC<{
             className="bg-slate-900 text-white max-w-xs shadow-xl shadow-slate-900/20"
             onClick={() => setCurrentScreen(Screen.MENU)}
           >
-            {userAllergies.trim() ? 'Continuar' : 'No hay alergias'}
+            {userAllergies.trim() ? t.continue_btn : t.no_allergies}
           </Button>
         </div>
       </div>
@@ -517,6 +517,21 @@ const AllergiesSelectionScreen: React.FC<{
 };
 
 // 5. Menu & Order Screen
+const ALLERGEN_MAPPING: Record<string, string[]> = {
+  'gluten': ['gluten', 'blat', 'wheat', 'trigo'],
+  'lactosa': ['lactosa', 'lactose', 'lacti', 'dairy', 'leche', 'milk', 'llet', 'queso', 'cheese', 'formatge'],
+  'huevo': ['huevo', 'egg', 'ou', 'huevos', 'eggs', 'ous'],
+  'pescado': ['pescado', 'fish', 'peix'],
+  'marisco': ['marisco', 'seafood', 'marisc', 'crustaceos', 'crustaceans', 'crustacis', 'moluscos', 'shellfish', 'gamba', 'pulpo', 'prawn', 'shrimp'],
+  'sulfitos': ['sulfitos', 'sulfites', 'sulfits', 'vino', 'wine', 'vi'],
+  'frutos secos': ['frutos secos', 'nuts', 'fruits secs', 'nueces', 'nuez', 'almendra', 'almond', 'avellana', 'hazelnut'],
+  'soja': ['soja', 'soy', 'soya'],
+  'mostaza': ['mostaza', 'mustard', 'mostassa'],
+  'sesamo': ['sesamo', 'sesame', 'sesam', 'sésamo'],
+  'apio': ['apio', 'celery', 'api'],
+  'cacahuete': ['cacahuete', 'peanut', 'cacauet', 'cacahuetes', 'peanuts', 'cacauets']
+};
+
 const MenuScreen: React.FC<{
   selectedLocation: string | null;
   selectedTable: string | null;
@@ -677,13 +692,24 @@ const MenuScreen: React.FC<{
                   const { name, description } = translatedItem;
 
                   const hasAllergyWarning = userAllergies.trim() && (() => {
-                    const words = userAllergies.toLowerCase().split(/[\s,]+/);
+                    const normalizeText = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                    const words = userAllergies.split(/[\s,]+/).map(normalizeText).filter(w => w.length > 2);
+                    const normalizedName = normalizeText(name);
+                    const normalizedDesc = normalizeText(description);
+                    const normalizedAllergens = item.allergens?.map(normalizeText) || [];
+                    
+                    const expandedAllergens: string[] = [];
+                    normalizedAllergens.forEach(allergen => {
+                      expandedAllergens.push(allergen);
+                      if (ALLERGEN_MAPPING[allergen]) {
+                        expandedAllergens.push(...ALLERGEN_MAPPING[allergen].map(normalizeText));
+                      }
+                    });
+
                     return words.some(word => 
-                      word.length > 2 && (
-                        name.toLowerCase().includes(word) || 
-                        description.toLowerCase().includes(word) ||
-                        item.allergens?.some(a => a.toLowerCase().includes(word))
-                      )
+                      normalizedName.includes(word) || 
+                      normalizedDesc.includes(word) ||
+                      expandedAllergens.some(a => a.includes(word))
                     );
                   })();
 
@@ -706,7 +732,7 @@ const MenuScreen: React.FC<{
                         <h3 className="font-serif font-bold text-slate-900 text-base mb-1 leading-tight">{name}</h3>
                         {hasAllergyWarning && (
                           <span className="shrink-0 bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded-md text-[10px] uppercase tracking-wider">
-                            Alerta Alergia
+                            {t.allergy_alert}
                           </span>
                         )}
                       </div>
@@ -1188,7 +1214,9 @@ const KitchenDashboardScreen: React.FC<{
   setCurrentScreen: (s: Screen) => void;
   orders: Order[];
   updateOrderStatus: (id: string, s: OrderStatus) => void;
-}> = ({ setCurrentScreen, orders, updateOrderStatus }) => {
+  language: Language;
+}> = ({ setCurrentScreen, orders, updateOrderStatus, language }) => {
+  const t = UI_TRANSLATIONS[language];
   const activeOrders = orders.filter(o => o.status !== OrderStatus.COMPLETED);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   
@@ -1287,7 +1315,7 @@ const KitchenDashboardScreen: React.FC<{
                                     <AlertCircle className="text-red-400 w-4 h-4" />
                                   </div>
                                   <div>
-                                    <h4 className="text-red-400 text-xs font-bold uppercase tracking-widest mb-1">Alerta Alergias</h4>
+                                    <h4 className="text-red-400 text-xs font-bold uppercase tracking-widest mb-1">{t.allergy_alert}</h4>
                                     <p className="text-slate-200 text-sm font-medium">{order.allergies}</p>
                                   </div>
                                 </div>
@@ -1318,7 +1346,7 @@ const KitchenDashboardScreen: React.FC<{
                                           className="w-full py-4 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-amber-600/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
                                       >
                                           <Bell size={18} fill="currentColor" />
-                                          Aceptar Ticket
+                                          {t.accept_ticket}
                                       </button>
                                   ) : (
                                       <button
@@ -1326,7 +1354,7 @@ const KitchenDashboardScreen: React.FC<{
                                           className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-blue-600/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
                                       >
                                           <CheckCircle size={18} />
-                                          Completar
+                                          {t.complete_btn}
                                       </button>
                                   )}
                               </div>
@@ -1349,7 +1377,9 @@ const AdminDashboardScreen: React.FC<{
   updateMenuItem: (item: MenuItem) => void;
   billRequests: BillRequest[];
   updateBillStatus: (id: string, s: 'PENDING' | 'COMPLETED') => void;
-}> = ({ setCurrentScreen, orders, updateOrderStatus, clearOrders, menuItems, updateMenuItem, billRequests, updateBillStatus }) => {
+  language: Language;
+}> = ({ setCurrentScreen, orders, updateOrderStatus, clearOrders, menuItems, updateMenuItem, billRequests, updateBillStatus, language }) => {
+  const t = UI_TRANSLATIONS[language];
   const [activeTab, setActiveTab] = useState<'INICIO' | 'RESUMENES' | 'CARTA' | 'CUENTAS' | 'CALCULADORA'>('INICIO');
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
   
@@ -1724,7 +1754,7 @@ const AdminDashboardScreen: React.FC<{
                                                           onClick={() => updateOrderStatus(order.id, OrderStatus.IN_PROGRESS)}
                                                           className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors"
                                                       >
-                                                          Cocinar
+                                                          {t.cook_btn}
                                                       </button>
                                                   )}
                                                   {order.status === OrderStatus.IN_PROGRESS && (
@@ -1732,7 +1762,7 @@ const AdminDashboardScreen: React.FC<{
                                                           onClick={() => updateOrderStatus(order.id, OrderStatus.COMPLETED)}
                                                           className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors"
                                                       >
-                                                          Completar
+                                                          {t.complete_btn}
                                                       </button>
                                                   )}
                                               </td>
@@ -1741,7 +1771,7 @@ const AdminDashboardScreen: React.FC<{
                                       {sortedOrders.length === 0 && (
                                           <tr>
                                               <td colSpan={12} className="px-4 py-8 text-center text-slate-500 font-medium">
-                                                  No hay pedidos registrados
+                                                  {t.no_orders}
                                               </td>
                                           </tr>
                                       )}
@@ -1867,7 +1897,7 @@ const AdminDashboardScreen: React.FC<{
                                           </div>
                                       </div>
                                   )) : (
-                                      <div className="text-sm text-slate-400 font-medium text-center py-4 bg-slate-50 rounded-xl border border-slate-100">No hay ventas registradas.</div>
+                                      <div className="text-sm text-slate-400 font-medium text-center py-4 bg-slate-50 rounded-xl border border-slate-100">{t.no_sales}</div>
                                   )}
                               </div>
                           </div>
@@ -1964,7 +1994,7 @@ const AdminDashboardScreen: React.FC<{
                           {billRequests.filter(b => b.status === 'PENDING').length === 0 ? (
                               <div className="col-span-full py-12 flex flex-col items-center justify-center text-slate-400 bg-white rounded-2xl border border-slate-200 border-dashed">
                                   <Receipt size={48} className="mb-4 opacity-50" />
-                                  <p className="font-medium">No hay peticiones de cuenta pendientes</p>
+                                  <p className="font-medium">{t.no_pending_bills}</p>
                               </div>
                           ) : (
                               (() => {
@@ -2078,7 +2108,7 @@ const AdminDashboardScreen: React.FC<{
                                                           onClick={() => tableBills.forEach(b => updateBillStatus(b.id, 'COMPLETED'))}
                                                       >
                                                           <CheckCircle size={16} />
-                                                          Marcar como cobrada
+                                                          {t.mark_as_paid}
                                                       </Button>
                                                   ) : (
                                                       <Button 
@@ -2126,11 +2156,21 @@ const App: React.FC = () => {
   const [selectedLocation, setSelectedLocation] = useState<'DENTRO' | 'FUERA' | null>(null);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [guestCount, setGuestCount] = useState<number>(2);
-  const [userAllergies, setUserAllergies] = useState<string>('');
+  const [allergiesByTable, setAllergiesByTable] = useState<Record<string, string>>({});
   const [cartsByTable, setCartsByTable] = useState<Record<string, CartItem[]>>({});
   
   const tableKey = `${selectedLocation}-${selectedTable}`;
   const cart = cartsByTable[tableKey] || [];
+  const userAllergies = allergiesByTable[tableKey] || '';
+  
+  const setUserAllergies = React.useCallback((value: React.SetStateAction<string>) => {
+    if (!selectedLocation || !selectedTable) return;
+    setAllergiesByTable(prev => {
+      const currentVal = prev[tableKey] || '';
+      const newVal = typeof value === 'function' ? value(currentVal) : value;
+      return { ...prev, [tableKey]: newVal };
+    });
+  }, [selectedLocation, selectedTable, tableKey]);
   
   const setCart = React.useCallback((value: React.SetStateAction<CartItem[]>) => {
     if (!selectedLocation || !selectedTable) return;
@@ -2187,6 +2227,38 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  // Listen for table bill completion to kick user to landing and clear data
+  const currentTableOrdersCount = selectedLocation && selectedTable 
+    ? orders.filter(o => o.location === selectedLocation && o.tableNumber === selectedTable && !o.paid).length 
+    : 0;
+  const prevTableOrdersCount = useRef(currentTableOrdersCount);
+
+  useEffect(() => {
+    if (prevTableOrdersCount.current > 0 && currentTableOrdersCount === 0) {
+      if (selectedLocation && selectedTable) {
+        const tableKey = `${selectedLocation}-${selectedTable}`;
+        setCartsByTable(prev => {
+          const next = { ...prev };
+          delete next[tableKey];
+          return next;
+        });
+        setAllergiesByTable(prev => {
+          const next = { ...prev };
+          delete next[tableKey];
+          return next;
+        });
+        if (currentScreen === Screen.MENU || currentScreen === Screen.ALLERGIES_SELECTION) {
+          setCurrentScreen(Screen.LANDING);
+          setSelectedLocation(null);
+          setSelectedTable(null);
+          setGuestCount(2);
+          setActiveTab('menu');
+        }
+      }
+    }
+    prevTableOrdersCount.current = currentTableOrdersCount;
+  }, [currentTableOrdersCount, selectedLocation, selectedTable, currentScreen]);
+
   // Sync menu
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, 'config', 'menu'), async (snapshot) => {
@@ -2200,7 +2272,14 @@ const App: React.FC = () => {
       } else {
         const data = snapshot.data();
         if (data && data.items) {
-          setMenuItems(data.items);
+          const mergedItems = (data.items as MenuItem[]).map(firestoreItem => {
+            const baseItem = MENU_ITEMS.find(m => m.id === firestoreItem.id);
+            return {
+              ...firestoreItem,
+              allergens: firestoreItem.allergens || baseItem?.allergens || []
+            };
+          });
+          setMenuItems(mergedItems);
         }
       }
     }, (error) => {
@@ -2505,6 +2584,7 @@ const App: React.FC = () => {
               setCurrentScreen={setCurrentScreen}
               orders={orders}
               updateOrderStatus={updateOrderStatus}
+              language={language}
             />
           </motion.div>
         )}
@@ -2519,6 +2599,7 @@ const App: React.FC = () => {
               updateMenuItem={updateMenuItem}
               billRequests={billRequests}
               updateBillStatus={updateBillStatus}
+              language={language}
             />
           </motion.div>
         )}
