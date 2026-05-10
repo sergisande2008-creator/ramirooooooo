@@ -2336,9 +2336,11 @@ const App: React.FC = () => {
       items: [...cart],
       status: OrderStatus.PENDING,
       timestamp: Date.now(),
-      total: getCartTotal(),
-      allergies: userAllergies.trim() ? userAllergies.trim() : undefined
+      total: getCartTotal()
     };
+    if (userAllergies.trim()) {
+      newOrder.allergies = userAllergies.trim();
+    }
 
     try {
       await setDoc(doc(db, 'orders', newOrderId), newOrder);
