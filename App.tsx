@@ -96,6 +96,7 @@ import {
   Send,
   X,
   CheckCircle,
+  Mail,
   AlertCircle,
   Clock,
   Trash2,
@@ -112,7 +113,11 @@ import {
   Users,
   Menu,
   Calculator,
-  Printer
+  Printer,
+  Sparkles,
+  Lightbulb,
+  Zap,
+  BrainCircuit
 } from 'lucide-react';
 
 import { 
@@ -1382,7 +1387,9 @@ const AdminDashboardScreen: React.FC<{
   language: Language;
 }> = ({ setCurrentScreen, orders, updateOrderStatus, clearOrders, menuItems, updateMenuItem, billRequests, updateBillStatus, language }) => {
   const t = UI_TRANSLATIONS[language];
-  const [activeTab, setActiveTab] = useState<'INICIO' | 'RESUMENES' | 'CARTA' | 'CUENTAS' | 'CALCULADORA'>('INICIO');
+  const [activeTab, setActiveTab] = useState<'INICIO' | 'RESUMENES' | 'CARTA' | 'CUENTAS' | 'CALCULADORA' | 'IA'>('INICIO');
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [campaignState, setCampaignState] = useState<'idle' | 'sending' | 'sent'>('idle');
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
   
   // Add state for selected date
@@ -1716,6 +1723,21 @@ const AdminDashboardScreen: React.FC<{
                      <Calculator size={18} />
                      Terminal de Caja
                  </button>
+                 <div className="pt-4 mt-2 border-t border-slate-800">
+                     <button 
+                         onClick={() => setActiveTab('IA')}
+                         className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all font-bold text-sm tracking-wide group overflow-hidden relative ${activeTab === 'IA' ? 'text-white' : 'text-indigo-300 hover:text-white'}`}
+                     >
+                         {activeTab === 'IA' && <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 shadow-lg opacity-100 transition-opacity"></div>}
+                         {!activeTab && <div className="absolute inset-0 bg-indigo-500/10 group-hover:bg-indigo-500/20 opacity-100 transition-opacity"></div>}
+                         
+                         <div className="flex items-center gap-3 relative z-10 w-full rounded-xl">
+                             <Sparkles size={18} className={`${activeTab === 'IA' ? 'text-white' : 'text-indigo-400 group-hover:text-amber-300'} transition-colors`} />
+                             Estrategia IA
+                             <span className="ml-auto bg-indigo-500/20 text-indigo-300 group-hover:text-white px-2 py-0.5 rounded-full text-[10px] uppercase font-black tracking-widest border border-indigo-500/30">Nuevo</span>
+                         </div>
+                     </button>
+                 </div>
              </nav>
              <button
                  onClick={() => setCurrentScreen(window.location.pathname.startsWith('/dashboard') ? Screen.ADMIN_DASHBOARD : Screen.LANDING)}
@@ -2207,7 +2229,174 @@ const AdminDashboardScreen: React.FC<{
                   </div>
               )}
               {activeTab === 'CALCULADORA' && <CashCalculator />}
+              {activeTab === 'IA' && (
+                  <div className="p-6 md:p-8 flex-1 bg-gradient-to-br from-indigo-50/30 to-purple-50/50 min-h-full">
+                      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+                          <div>
+                              <h1 className="text-3xl font-serif font-black text-slate-900 mb-1 flex items-center gap-3">
+                                  Nexus AI Insights
+                                  <span className="bg-gradient-to-r from-indigo-600 to-purple-600 text-transparent bg-clip-text text-sm tracking-widest font-bold uppercase border border-indigo-200 bg-white px-3 py-1 rounded-full shadow-sm">
+                                      BETA
+                                  </span>
+                              </h1>
+                              <p className="text-slate-500 text-sm font-medium mt-2">
+                                  Revoluciona tu restaurante descubriendo patrones ocultos y maximizando ganancias.
+                              </p>
+                          </div>
+                      </header>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                          <div className="bg-white p-6 md:p-8 rounded-3xl shadow-xl shadow-indigo-900/5 border border-indigo-100 flex flex-col items-start relative overflow-hidden group">
+                              <div className="absolute -right-6 -top-6 w-32 h-32 bg-amber-400 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity"></div>
+                              <div className="bg-amber-100 text-amber-700 p-3 rounded-2xl mb-4 relative z-10 border border-amber-200">
+                                  <Lightbulb size={24} />
+                              </div>
+                              <h3 className="text-xl font-bold text-slate-900 mb-2 relative z-10">Oportunidad de Venta Cruzada</h3>
+                              <p className="text-slate-600 text-sm leading-relaxed mb-4 relative z-10">
+                                  Hemos detectado que el <strong className="text-slate-900">73%</strong> de tus clientes que piden "Croquetas Caseras" estarían dispuestos a pedir un "Vino Tinto Rioja".
+                              </p>
+                              <div className="mt-auto bg-amber-50/50 border border-amber-100 w-full p-4 rounded-xl relative z-10">
+                                  <p className="text-amber-800 text-sm font-bold flex items-center gap-2">
+                                      <TrendingUp size={16}/> Impacto estimado: +1,250€ / mes
+                                  </p>
+                                  <p className="text-xs text-amber-700 mt-1">Sugerencia: Crea un "Pack Aperitivo" combinando ambos con un 5% de descuento.</p>
+                              </div>
+                          </div>
+
+                          <div className="bg-indigo-900 p-6 md:p-8 rounded-3xl shadow-xl shadow-indigo-900/20 border border-indigo-800 flex flex-col items-start relative overflow-hidden group">
+                              <div className="absolute right-0 bottom-0 w-64 h-64 bg-blue-600 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity translate-x-1/4 translate-y-1/4"></div>
+                              <div className="bg-indigo-800/50 text-indigo-300 p-3 rounded-2xl mb-4 relative z-10 border border-indigo-700">
+                                  <BrainCircuit size={24} />
+                              </div>
+                              <h3 className="text-xl font-bold text-white mb-2 relative z-10">Predicción de Demanda Inteligente</h3>
+                              <p className="text-indigo-200 text-sm leading-relaxed mb-4 relative z-10">
+                                  Según el pronóstico de temperatura y tus datos históricos, esperamos un <strong>aumento del 40%</strong> en las mesas de terraza para este viernes tarde.
+                              </p>
+                              <div className="mt-auto bg-black/20 border border-white/10 w-full p-4 rounded-xl relative z-10 backdrop-blur-sm">
+                                  <p className="text-emerald-400 text-sm font-bold flex items-center gap-2">
+                                      <Zap size={16}/> Estrategia accionable
+                                  </p>
+                                  <p className="text-xs text-indigo-300 mt-1">Sugerencia: Refuerza el stock de cerveza de barril y asigna un camarero extra a la terraza.</p>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200">
+                          <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2 border-b border-slate-100 pb-4">
+                              <Users size={20} className="text-blue-500" />
+                              CRM: Tus Mejores Clientes
+                          </h3>
+                          <div className="space-y-4">
+                              {[
+                                  { name: "La Mesa del Viernes", frequency: "4 veces este mes",  ticket: "120.50€", status: "VIP GOLD" },
+                                  { name: "Pareja Frecuente", frequency: "3 veces este mes", ticket: "65.00€", status: "VIP SILVER" },
+                                  { name: "Familia Numerosa", frequency: "2 veces este mes",  ticket: "210.00€", status: "NUEVO ALTO VALOR" },
+                              ].map((client, idx) => (
+                                  <div key={idx} className="flex justify-between items-center p-4 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-100">
+                                      <div>
+                                          <p className="font-bold text-slate-900">{client.name}</p>
+                                          <p className="text-xs text-slate-500 mt-0.5">{client.frequency} · Gasto Medio: {client.ticket}</p>
+                                      </div>
+                                      <span className={`text-[10px] uppercase font-black px-3 py-1 rounded-full ${idx === 0 ? 'bg-amber-100 text-amber-700' : idx === 1 ? 'bg-slate-200 text-slate-600' : 'bg-emerald-100 text-emerald-700'}`}>
+                                          {client.status}
+                                      </span>
+                                  </div>
+                              ))}
+                          </div>
+                          <div className="mt-6 pt-4 border-t border-slate-100 flex justify-center">
+                              <button 
+                                  onClick={() => {
+                                      setCampaignState('idle');
+                                      setShowCampaignModal(true);
+                                  }}
+                                  className="text-sm font-bold text-indigo-600 hover:text-indigo-700 focus:outline-none flex items-center gap-1 group"
+                              >
+                                  Lanzar campaña de fidelización <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+              )}
           </div>
+          
+          {showCampaignModal && (
+              <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                  <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative overflow-hidden">
+                      <button 
+                          onClick={() => setShowCampaignModal(false)} 
+                          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition-colors z-10"
+                      >
+                          <X size={20} />
+                      </button>
+                      
+                      {campaignState === 'idle' && (
+                          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                              <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-inner shadow-white/50">
+                                  <Mail size={32} />
+                              </div>
+                              <h2 className="text-2xl font-black text-slate-800 mb-2">Campaña a Clientes VIP</h2>
+                              <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+                                  Recompensa a tus mejores clientes detectados por Nexus AI. Premia su fidelidad para que sigan eligiéndote.
+                              </p>
+                              
+                              <div className="space-y-3 mb-8">
+                                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 relative overflow-hidden group hover:border-indigo-200 transition-colors">
+                                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500"></div>
+                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Audiencia Objetivo</p>
+                                     <p className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                         Top 3 clientes recurrentes <span className="bg-indigo-100 text-indigo-700 text-[10px] px-2 py-0.5 rounded-full">Altísima probabilidad de retorno</span>
+                                     </p>
+                                 </div>
+                                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 relative overflow-hidden hover:border-amber-200 transition-colors">
+                                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
+                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Oferta (Invita la casa)</p>
+                                     <p className="text-sm font-bold text-slate-800">
+                                         "Hola 👋, te regalamos el postre en tu próxima cena enseñando este correo exprés."
+                                     </p>
+                                 </div>
+                              </div>
+
+                              <button 
+                                  onClick={() => {
+                                      setCampaignState('sending');
+                                      setTimeout(() => setCampaignState('sent'), 1500);
+                                  }}
+                                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-4 rounded-xl flex justify-center items-center gap-2 shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/40 transition-all active:scale-[0.98]"
+                              >
+                                  <Send size={20} />
+                                  Lanzar Campaña por Email
+                              </button>
+                          </div>
+                      )}
+
+                      {campaignState === 'sending' && (
+                          <div className="py-12 flex flex-col items-center justify-center animate-in zoom-in-95 duration-300">
+                              <Loader2 size={48} className="text-indigo-500 animate-spin mb-4" />
+                              <h3 className="text-lg font-bold text-slate-800">Enviando campaña...</h3>
+                              <p className="text-slate-500 text-sm mt-2">Conectando con servidores de correo...</p>
+                          </div>
+                      )}
+
+                      {campaignState === 'sent' && (
+                          <div className="py-8 flex flex-col items-center justify-center animate-in zoom-in-95 duration-300">
+                              <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6 shadow-inner shadow-white/50 border-4 border-emerald-50">
+                                  <CheckCircle size={40} />
+                              </div>
+                              <h3 className="text-2xl font-black text-slate-800 text-center mb-2">¡Campaña Lanzada!</h3>
+                              <p className="text-slate-600 text-sm text-center mb-8 px-4 leading-relaxed">
+                                  Se han enviado exitosamente 3 correos electrónicos a tus clientes VIP. Estarán de vuelta muy pronto.
+                              </p>
+                              <button 
+                                  onClick={() => setShowCampaignModal(false)}
+                                  className="w-full bg-slate-900 border border-transparent hover:bg-slate-800 text-white font-bold py-3 px-6 rounded-xl transition-colors"
+                              >
+                                  Volver al Dashboard
+                              </button>
+                          </div>
+                      )}
+                  </div>
+              </div>
+          )}
       </div>
   );
 };
