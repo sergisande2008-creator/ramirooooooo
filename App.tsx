@@ -1,5 +1,5 @@
 // ... (Keep existing imports)
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Screen, MenuCategory, MenuItem, CartItem, Order, OrderStatus, BillRequest } from './types';
 import { MENU_ITEMS, TABLES } from './constants';
 // Import from root ./Button
@@ -117,7 +117,11 @@ import {
   Sparkles,
   Lightbulb,
   Zap,
-  BrainCircuit
+  BrainCircuit,
+  Trophy,
+  Target,
+  Timer,
+  Flame
 } from 'lucide-react';
 
 import { 
@@ -572,6 +576,39 @@ const MenuScreen: React.FC<{
   const [splitMode, setSplitMode] = useState<'ALL' | 'SPLIT' | 'ITEMS'>('ALL');
   const [selectedSplitItems, setSelectedSplitItems] = useState<Record<string, number>>({});
 
+  const itemStats = useMemo(() => {
+    const stats: Record<string, { totalOrdered: number, orderedLastHour: number }> = {};
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    
+    // Initialize stats
+    menuItems.forEach(item => {
+      stats[item.id] = { totalOrdered: 0, orderedLastHour: 0 };
+    });
+
+    orders.forEach(order => {
+      const isRecent = order.timestamp > oneHourAgo;
+      order.items.forEach(item => {
+        if (!stats[item.id]) {
+          stats[item.id] = { totalOrdered: 0, orderedLastHour: 0 };
+        }
+        stats[item.id].totalOrdered += item.quantity;
+        if (isRecent) {
+          stats[item.id].orderedLastHour += item.quantity;
+        }
+      });
+    });
+
+    return stats;
+  }, [orders, menuItems]);
+
+  const topOrderedValue = useMemo(() => {
+    let max = 0;
+    Object.values(itemStats).forEach(s => {
+      if (s.totalOrdered > max) max = s.totalOrdered;
+    });
+    return max;
+  }, [itemStats]);
+
   const tableOrdersNow = orders.filter(o => o.location === selectedLocation && o.tableNumber === selectedTable && !o.paid);
   const tablePendingBillsNow = billRequests.filter(b => b.location === selectedLocation && b.tableNumber === selectedTable && b.status === 'PENDING');
   
@@ -719,6 +756,23 @@ const MenuScreen: React.FC<{
                     );
                   })();
 
+                  const getScarcityMessage = () => {
+                    const stats = itemStats[item.id];
+                    if (!stats) return null;
+
+                    if (stats.totalOrdered > 0 && stats.totalOrdered === topOrderedValue && topOrderedValue >= 1) {
+                      return { 
+                        text: language === 'en' ? `Most popular today!` : `¡El más popular hoy!`, 
+                        icon: <TrendingUp size={12} className="shrink-0" />,
+                        color: 'text-amber-700 bg-amber-50 border-amber-200'
+                      };
+                    }
+
+                    return null;
+                  };
+                  
+                  const scarcityMessage = getScarcityMessage();
+
                   return (
                     <div 
                       key={item.id} 
@@ -742,11 +796,20 @@ const MenuScreen: React.FC<{
                           </span>
                         )}
                       </div>
-                      <p className="text-slate-400 text-xs line-clamp-2 mb-3 leading-relaxed">{description}</p>
+                      <p className={`text-slate-400 text-xs line-clamp-2 leading-relaxed ${scarcityMessage && !item.outOfStock ? 'mb-2' : 'mb-3'}`}>{description}</p>
+                      
+                      {scarcityMessage && !item.outOfStock && (
+                        <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 mb-2 rounded border text-[9px] font-bold uppercase tracking-wider ${scarcityMessage.color}`}>
+                          {scarcityMessage.icon}
+                          {scarcityMessage.text}
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between">
                         <span className="font-black text-slate-900 text-sm">{item.price.toFixed(2)}€</span>
                         
                         {/* Quantity Control Button */}
+
                         {qty === 0 ? (
                             <button 
                               disabled={item.outOfStock}
