@@ -22,7 +22,7 @@ Un cliente dejó esta reseña: "${feedback.comment}" de ${feedback.rating} estre
 Escribe un consejo directo, cortísimo (máximo 2 líneas) y 100% accionable sobre cómo evitar este problema en el futuro o cómo gestionar esa mesa ahora mismo. Cero introducciones, ve directo al grano. Responde en el idioma que corresponda al siguiente código: ${language}.`;
       
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
       });
       setInsight(response.text || t.admin_ai_error);
@@ -1961,7 +1961,8 @@ const AdminDashboardScreen: React.FC<{
                       <span>TOTAL:</span>
                       <span>${tableTotal.toFixed(2)}€</span>
                   </div>
-                  <p style="text-align: center; margin-top: 20px;">¡Gracias por su visita!</p>
+                  <p style="text-align: center; margin-top: 30px; margin-bottom: 60px;">¡Gracias por su visita!</p>
+                  <div><br><br><br><br><br></div>
                   <script>
                       window.onload = function() { window.print(); window.close(); }
                   </script>
