@@ -2,13 +2,14 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { GoogleGenAI } from '@google/genai';
 
-const FeedbackAIInsight: React.FC<{ feedback: Feedback }> = ({ feedback }) => {
+const FeedbackAIInsight: React.FC<{ feedback: Feedback, language: Language }> = ({ feedback, language }) => {
+  const t = UI_TRANSLATIONS[language];
   const [insight, setInsight] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const generateInsight = async () => {
     if (!feedback.comment || feedback.comment.trim() === '') {
-      setInsight("No hay suficientes detalles en el comentario para un análisis.");
+      setInsight(t.admin_no_details);
       return;
     }
     
@@ -18,16 +19,16 @@ const FeedbackAIInsight: React.FC<{ feedback: Feedback }> = ({ feedback }) => {
       const prompt = `Actúa como un coach de restaurantes de estrella Michelin. 
 Un cliente dejó esta reseña: "${feedback.comment}" de ${feedback.rating} estrellas en la mesa ${feedback.tableNumber} (${feedback.location}).
 
-Escribe un consejo directo, cortísimo (máximo 2 líneas) y 100% accionable sobre cómo evitar este problema en el futuro o cómo gestionar esa mesa ahora mismo. Cero introducciones, ve directo al grano.`;
+Escribe un consejo directo, cortísimo (máximo 2 líneas) y 100% accionable sobre cómo evitar este problema en el futuro o cómo gestionar esa mesa ahora mismo. Cero introducciones, ve directo al grano. Responde en el idioma que corresponda al siguiente código: ${language}.`;
       
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
       });
-      setInsight(response.text || "No se pudo generar el consejo.");
+      setInsight(response.text || t.admin_ai_error);
     } catch (err) {
       console.error(err);
-      setInsight("Error al conectar con Nexus Coach AI.");
+      setInsight(t.admin_ai_error);
     } finally {
       setLoading(false);
     }
@@ -42,13 +43,13 @@ Escribe un consejo directo, cortísimo (máximo 2 líneas) y 100% accionable sob
           onClick={generateInsight}
           className="flex items-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100"
         >
-          <BrainCircuit size={14} /> Solicitar Análisis de Nexus Coach AI
+          <BrainCircuit size={14} /> {t.admin_ask_insight}
         </button>
       )}
       
       {loading && (
         <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 bg-indigo-50/50 px-3 py-1.5 rounded-lg w-it">
-          <RefreshCw size={14} className="animate-spin" /> Analizando situación...
+          <RefreshCw size={14} className="animate-spin" /> {t.admin_analyzing}
         </div>
       )}
 
@@ -60,7 +61,7 @@ Escribe un consejo directo, cortísimo (máximo 2 líneas) y 100% accionable sob
                <BrainCircuit size={16} />
              </div>
              <div>
-               <p className="text-[10px] font-black uppercase text-indigo-800 tracking-wider mb-0.5">Consejo del Coach</p>
+               <p className="text-[10px] font-black uppercase text-indigo-800 tracking-wider mb-0.5">{t.admin_ai_coach}</p>
                <p className="text-sm text-slate-700 leading-relaxed font-medium">{insight}</p>
              </div>
           </div>
@@ -1291,11 +1292,11 @@ const MenuScreen: React.FC<{
               <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6">
                 <Receipt className="text-blue-500 w-10 h-10" />
               </div>
-              <h3 className="font-serif font-black text-2xl text-slate-900 mb-2">¡Marchando!</h3>
+              <h3 className="font-serif font-black text-2xl text-slate-900 mb-2">{t.feedback_coming_up}</h3>
               <p className="text-slate-500 leading-relaxed text-sm font-medium mb-6">
-                Tu cuenta está en camino. Mientras tanto...
+                {t.feedback_on_way}
                 <br /><br />
-                <span className="text-slate-800 font-bold">¿Qué tal ha sido tu experiencia hoy?</span>
+                <span className="text-slate-800 font-bold">{t.feedback_how_was}</span>
               </p>
               
               <div className="flex justify-center gap-2 mb-4">
@@ -1324,20 +1325,20 @@ const MenuScreen: React.FC<{
                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4 mx-auto">
                  <AlertCircle className="text-red-500 w-8 h-8" />
                </div>
-               <h3 className="font-serif font-black text-xl text-slate-900 mb-2">Lamentamos que no haya sido perfecto.</h3>
+               <h3 className="font-serif font-black text-xl text-slate-900 mb-2">{t.feedback_bad_title}</h3>
                <textarea 
                  value={feedbackText}
                  onChange={e => setFeedbackText(e.target.value)}
                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-slate-900 focus:outline-none resize-none h-24 mb-4"
-                 placeholder="Cuentanos qué podemos mejorar..."
+                 placeholder={t.feedback_bad_placeholder}
                />
                <div className="flex gap-3 w-full">
-                  <button onClick={() => setBillSuccessMessage(false)} className="flex-1 py-3 text-slate-500 font-bold text-sm hover:text-slate-700">Cancelar</button>
+                  <button onClick={() => setBillSuccessMessage(false)} className="flex-1 py-3 text-slate-500 font-bold text-sm hover:text-slate-700">{t.feedback_cancel}</button>
                   <button onClick={() => {
                      // TODO: In a real app, send silent alert to manager here
                      handleSubmitFeedback(ratingStar, feedbackText);
                   }} className="flex-1 bg-slate-900 text-white rounded-xl font-bold py-3 text-sm hover:bg-slate-800 transition-colors">
-                     Enviar Error
+                     {t.feedback_send}
                   </button>
                </div>
             </motion.div>
@@ -1348,8 +1349,8 @@ const MenuScreen: React.FC<{
                <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mb-4 mx-auto">
                  <Star className="text-emerald-500 w-8 h-8" fill="currentColor" />
                </div>
-               <h3 className="font-serif font-black text-xl text-slate-900 mb-2">¡Nos alegra muchísimo!</h3>
-               <p className="text-slate-500 text-sm mb-6">Nos ayuda un montón crecer. ¿Nos ayudas dejándonos esta nota en Google Maps?</p>
+               <h3 className="font-serif font-black text-xl text-slate-900 mb-2">{t.feedback_good_title}</h3>
+               <p className="text-slate-500 text-sm mb-6">{t.feedback_good_desc}</p>
                <div className="flex flex-col gap-3 w-full">
                   <a 
                     href="https://maps.google.com" 
@@ -1358,10 +1359,10 @@ const MenuScreen: React.FC<{
                     onClick={() => setBillSuccessMessage(false)}
                     className="w-full bg-blue-600 text-white rounded-xl font-bold py-3 text-sm hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
                   >
-                     Dejar reseña en Google
+                     {t.feedback_google_btn}
                   </a>
                   <button onClick={() => setBillSuccessMessage(false)} className="w-full py-3 text-slate-400 font-bold text-sm hover:text-slate-600 transition-colors">
-                     No, gracias
+                     {t.feedback_no_thanks}
                   </button>
                </div>
             </motion.div>
@@ -2500,7 +2501,7 @@ const AdminDashboardScreen: React.FC<{
                           {feedbacks.filter(f => f.status === 'UNREAD').length === 0 ? (
                               <div className="py-12 flex flex-col items-center justify-center text-slate-400 bg-white rounded-2xl border border-slate-200 border-dashed">
                                   <Star size={48} className="mb-4 opacity-50 text-slate-300" />
-                                  <p className="font-medium">No hay reseñas pendientes.</p>
+                                  <p className="font-medium">{t.admin_no_reviews}</p>
                               </div>
                           ) : (
                               feedbacks.filter(f => f.status === 'UNREAD').sort((a, b) => b.timestamp - a.timestamp).map(feedback => (
@@ -2517,10 +2518,10 @@ const AdminDashboardScreen: React.FC<{
                                                       {new Date(feedback.timestamp).toLocaleString()}
                                                   </span>
                                                   {feedback.status === 'UNREAD' && (
-                                                      <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Nuevo</span>
+                                                      <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">{t.admin_review_new}</span>
                                                   )}
                                               </div>
-                                              <p className="text-slate-700 font-medium text-sm mb-2">&quot;{feedback.comment || 'Sin comentario'}&quot;</p>
+                                              <p className="text-slate-700 font-medium text-sm mb-2">&quot;{feedback.comment || t.admin_review_no_comment}&quot;</p>
                                               <div className="text-xs text-slate-500 font-bold bg-slate-50 inline-block px-3 py-1 rounded-md">
                                                   Mesa {feedback.tableNumber} • {feedback.location}
                                               </div>
@@ -2530,11 +2531,11 @@ const AdminDashboardScreen: React.FC<{
                                                   onClick={() => markFeedbackAsRead(feedback.id)}
                                                   className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold py-2 px-4 rounded-xl transition-colors shrink-0"
                                               >
-                                                  Marcar Leído
+                                                  {t.admin_mark_read}
                                               </button>
                                           )}
                                       </div>
-                                      <FeedbackAIInsight feedback={feedback} />
+                                      <FeedbackAIInsight feedback={feedback} language={language} />
                                   </div>
                               ))
                           )}
