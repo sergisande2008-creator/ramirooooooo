@@ -397,7 +397,12 @@ const LocationSelectionScreen: React.FC<{
       </button>
     </div>
 
-    <div className="flex-1 flex flex-col items-center">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="flex-1 flex flex-col items-center"
+    >
       <h2 
         className="text-4xl font-serif font-black text-slate-900 mb-2"
       >
@@ -409,8 +414,11 @@ const LocationSelectionScreen: React.FC<{
         {t.where_to_sit}
       </p>
 
-      <div 
-        className="grid grid-cols-1 gap-6 w-full max-w-sm"
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className={`grid grid-cols-1 gap-6 w-full max-w-sm ${!isClickable ? 'pointer-events-none' : ''}`}
       >
         <button
           onClick={(e) => {
@@ -447,8 +455,8 @@ const LocationSelectionScreen: React.FC<{
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t.outside_desc}</span>
           </div>
         </button>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   </div>
 );
 };
@@ -470,7 +478,12 @@ const TableSelectionScreen: React.FC<{
       </button>
     </div>
 
-    <div className="flex-1 flex flex-col items-center">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="flex-1 flex flex-col items-center"
+    >
       <h2 
         className="text-4xl font-serif font-black text-slate-900 mb-2"
       >
@@ -482,7 +495,12 @@ const TableSelectionScreen: React.FC<{
         {t.zone} {selectedLocation === 'DENTRO' ? t.inside : t.outside}
       </p>
 
-      <div className="grid grid-cols-2 gap-6 w-full max-w-sm">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className={`grid grid-cols-2 gap-6 w-full max-w-sm ${!isClickable ? 'pointer-events-none' : ''}`}
+      >
         {TABLES.map((table, i) => (
           <button
             key={table}
@@ -499,8 +517,8 @@ const TableSelectionScreen: React.FC<{
             <span className="relative z-10 text-6xl font-black text-slate-900 group-hover:text-blue-600 transition-colors">{table}</span>
           </button>
         ))}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   </div>
 );
 };
@@ -524,7 +542,12 @@ const GuestSelectionScreen: React.FC<{
       </button>
     </div>
 
-    <div className="flex-1 flex flex-col items-center justify-center -mt-20">
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3 }}
+      className={`flex-1 flex flex-col items-center justify-center -mt-20 ${!isClickable ? 'pointer-events-none' : ''}`}
+    >
       <h2 
         className="text-4xl font-serif font-black text-slate-900 mb-2"
       >
@@ -576,7 +599,7 @@ const GuestSelectionScreen: React.FC<{
           {t.start}
         </Button>
       </div>
-    </div>
+    </motion.div>
   </div>
 );
 };
@@ -598,7 +621,12 @@ const AllergiesSelectionScreen: React.FC<{
         </button>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center -mt-20 max-w-md mx-auto w-full">
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className={`flex-1 flex flex-col items-center justify-center -mt-20 max-w-md mx-auto w-full ${!isClickable ? 'pointer-events-none' : ''}`}
+      >
         <h2 className="text-4xl font-serif font-black text-slate-900 mb-2 text-center">
           {t.any_allergies}
         </h2>
@@ -626,7 +654,7 @@ const AllergiesSelectionScreen: React.FC<{
             {userAllergies.trim() ? t.continue_btn : t.no_allergies}
           </Button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };
