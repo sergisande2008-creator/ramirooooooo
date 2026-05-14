@@ -54,5 +54,17 @@ service cloud.firestore {
        allow update: if 
           (!('status' in incoming().keys()) || incoming().status in ['PENDING', 'COMPLETED']);
     }
+    
+    match /feedbacks/{feedbackId} {
+       allow read, delete: if true;
+       allow create: if isValidId(feedbackId)
+          && incoming().keys().hasAll(['id', 'rating', 'comment', 'location', 'tableNumber', 'timestamp', 'status'])
+          && incoming().id is string && incoming().rating is number && incoming().comment is string
+          && incoming().location is string && incoming().tableNumber is string && incoming().timestamp is number
+          && incoming().status in ['UNREAD', 'READ'];
+          
+       allow update: if 
+          (!('status' in incoming().keys()) || incoming().status in ['UNREAD', 'READ']);
+    }
   }
 }

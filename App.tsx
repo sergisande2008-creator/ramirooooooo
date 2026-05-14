@@ -1,6 +1,76 @@
 // ... (Keep existing imports)
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Screen, MenuCategory, MenuItem, CartItem, Order, OrderStatus, BillRequest } from './types';
+import { GoogleGenAI } from '@google/genai';
+
+const FeedbackAIInsight: React.FC<{ feedback: Feedback }> = ({ feedback }) => {
+  const [insight, setInsight] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const generateInsight = async () => {
+    if (!feedback.comment || feedback.comment.trim() === '') {
+      setInsight("No hay suficientes detalles en el comentario para un análisis.");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const prompt = `Actúa como un coach de restaurantes de estrella Michelin. 
+Un cliente dejó esta reseña: "${feedback.comment}" de ${feedback.rating} estrellas en la mesa ${feedback.tableNumber} (${feedback.location}).
+
+Escribe un consejo directo, cortísimo (máximo 2 líneas) y 100% accionable sobre cómo evitar este problema en el futuro o cómo gestionar esa mesa ahora mismo. Cero introducciones, ve directo al grano.`;
+      
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+      });
+      setInsight(response.text || "No se pudo generar el consejo.");
+    } catch (err) {
+      console.error(err);
+      setInsight("Error al conectar con Nexus Coach AI.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (feedback.rating > 3) return null;
+
+  return (
+    <div className="mt-4 pt-4 border-t border-slate-100/50">
+      {!insight && !loading && (
+        <button 
+          onClick={generateInsight}
+          className="flex items-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100"
+        >
+          <BrainCircuit size={14} /> Solicitar Análisis de Nexus Coach AI
+        </button>
+      )}
+      
+      {loading && (
+        <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 bg-indigo-50/50 px-3 py-1.5 rounded-lg w-it">
+          <RefreshCw size={14} className="animate-spin" /> Analizando situación...
+        </div>
+      )}
+
+      {insight && !loading && (
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-3 rounded-xl border border-indigo-100 relative overflow-hidden group">
+          <div className="absolute right-0 top-0 w-24 h-24 bg-purple-500 rounded-full blur-2xl opacity-10"></div>
+          <div className="relative z-10 flex gap-3 items-start">
+             <div className="bg-white p-1.5 rounded-lg shadow-sm text-indigo-600 mt-0.5">
+               <BrainCircuit size={16} />
+             </div>
+             <div>
+               <p className="text-[10px] font-black uppercase text-indigo-800 tracking-wider mb-0.5">Consejo del Coach</p>
+               <p className="text-sm text-slate-700 leading-relaxed font-medium">{insight}</p>
+             </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+import { Screen, MenuCategory, MenuItem, CartItem, Order, OrderStatus, BillRequest, Feedback } from './types';
 import { MENU_ITEMS, TABLES } from './constants';
 // Import from root ./Button
 import { Button } from './Button';
@@ -118,10 +188,12 @@ import {
   Lightbulb,
   Zap,
   BrainCircuit,
+  Star,
   Trophy,
   Target,
   Timer,
-  Flame
+  Flame,
+  RefreshCw
 } from 'lucide-react';
 
 import { 
@@ -558,8 +630,10 @@ const MenuScreen: React.FC<{
   getCartTotal: () => number;
   handleSendOrder: () => void;
   handleRequestBill: (method: 'CARD' | 'CASH' | 'ONLINE', splitWays?: number, itemsToPay?: { id: string; name: string; quantity: number; price: number }[]) => void;
+  handleSubmitFeedback: (rating: number, comment: string) => void;
   orderSuccessMessage: boolean;
   billSuccessMessage: boolean;
+  setBillSuccessMessage: (v: boolean) => void;
   language: Language;
   menuItems: MenuItem[];
   hasActiveOrders: boolean;
@@ -570,11 +644,24 @@ const MenuScreen: React.FC<{
   selectedLocation, selectedTable, guestCount, setCurrentScreen,
   activeTab, setActiveTab, cart, selectedCategory, setSelectedCategory,
   getItemQuantity, addToCart, removeFromCart, getCartTotal, handleSendOrder,
-  handleRequestBill, orderSuccessMessage, billSuccessMessage, language, menuItems, hasActiveOrders, orders, billRequests, userAllergies
+  handleRequestBill, handleSubmitFeedback, orderSuccessMessage, billSuccessMessage, setBillSuccessMessage, language, menuItems, hasActiveOrders, orders, billRequests, userAllergies
 }) => {
   const t = UI_TRANSLATIONS[language];
   const [splitMode, setSplitMode] = useState<'ALL' | 'SPLIT' | 'ITEMS'>('ALL');
   const [selectedSplitItems, setSelectedSplitItems] = useState<Record<string, number>>({});
+  
+  // Feedback States
+  const [feedbackStep, setFeedbackStep] = useState<'RATING' | 'BAD' | 'GOOD'>('RATING');
+  const [ratingStar, setRatingStar] = useState<number>(0);
+  const [feedbackText, setFeedbackText] = useState('');
+
+  useEffect(() => {
+    if (billSuccessMessage) {
+      setFeedbackStep('RATING');
+      setRatingStar(0);
+      setFeedbackText('');
+    }
+  }, [billSuccessMessage]);
 
   const itemStats = useMemo(() => {
     const stats: Record<string, { totalOrdered: number, orderedLastHour: number }> = {};
@@ -757,6 +844,14 @@ const MenuScreen: React.FC<{
                   })();
 
                   const getScarcityMessage = () => {
+                    if (item.fewUnitsLeft) {
+                      return {
+                        text: language === 'en' ? `Last units available` : `Últimas 2 raciones disponibles`,
+                        icon: <Flame size={12} className="shrink-0" />,
+                        color: 'text-red-700 bg-red-50 border-red-200'
+                      };
+                    }
+
                     const stats = itemStats[item.id];
                     if (!stats) return null;
 
@@ -1189,15 +1284,88 @@ const MenuScreen: React.FC<{
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0.9, y: 20 }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          className="bg-white rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl flex flex-col items-center"
+          className="bg-white rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl flex flex-col items-center relative overflow-hidden"
         >
-          <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6">
-            <Receipt className="text-blue-500 w-10 h-10" />
-          </div>
-          <h3 className="font-serif font-black text-2xl text-slate-900 mb-4">{t.bill_success_title}</h3>
-          <p className="text-slate-500 leading-relaxed text-sm font-medium">
-            {t.bill_success_desc}
-          </p>
+          {feedbackStep === 'RATING' && (
+            <>
+              <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6">
+                <Receipt className="text-blue-500 w-10 h-10" />
+              </div>
+              <h3 className="font-serif font-black text-2xl text-slate-900 mb-2">¡Marchando!</h3>
+              <p className="text-slate-500 leading-relaxed text-sm font-medium mb-6">
+                Tu cuenta está en camino. Mientras tanto...
+                <br /><br />
+                <span className="text-slate-800 font-bold">¿Qué tal ha sido tu experiencia hoy?</span>
+              </p>
+              
+              <div className="flex justify-center gap-2 mb-4">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => {
+                      setRatingStar(star);
+                      if (star <= 3) {
+                        setFeedbackStep('BAD');
+                      } else {
+                        setFeedbackStep('GOOD');
+                      }
+                    }}
+                    className={`p-2 transition-transform hover:scale-110 active:scale-95 ${ratingStar >= star ? 'text-amber-400' : 'text-slate-200'}`}
+                  >
+                    <Star size={36} fill={ratingStar >= star ? "currentColor" : "none"} strokeWidth={ratingStar >= star ? 0 : 2} />
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {feedbackStep === 'BAD' && (
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+               <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4 mx-auto">
+                 <AlertCircle className="text-red-500 w-8 h-8" />
+               </div>
+               <h3 className="font-serif font-black text-xl text-slate-900 mb-2">Lamentamos que no haya sido perfecto.</h3>
+               <textarea 
+                 value={feedbackText}
+                 onChange={e => setFeedbackText(e.target.value)}
+                 className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-slate-900 focus:outline-none resize-none h-24 mb-4"
+                 placeholder="Cuentanos qué podemos mejorar..."
+               />
+               <div className="flex gap-3 w-full">
+                  <button onClick={() => setBillSuccessMessage(false)} className="flex-1 py-3 text-slate-500 font-bold text-sm hover:text-slate-700">Cancelar</button>
+                  <button onClick={() => {
+                     // TODO: In a real app, send silent alert to manager here
+                     handleSubmitFeedback(ratingStar, feedbackText);
+                  }} className="flex-1 bg-slate-900 text-white rounded-xl font-bold py-3 text-sm hover:bg-slate-800 transition-colors">
+                     Enviar Error
+                  </button>
+               </div>
+            </motion.div>
+          )}
+
+          {feedbackStep === 'GOOD' && (
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+               <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mb-4 mx-auto">
+                 <Star className="text-emerald-500 w-8 h-8" fill="currentColor" />
+               </div>
+               <h3 className="font-serif font-black text-xl text-slate-900 mb-2">¡Nos alegra muchísimo!</h3>
+               <p className="text-slate-500 text-sm mb-6">Nos ayuda un montón crecer. ¿Nos ayudas dejándonos esta nota en Google Maps?</p>
+               <div className="flex flex-col gap-3 w-full">
+                  <a 
+                    href="https://maps.google.com" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    onClick={() => setBillSuccessMessage(false)}
+                    className="w-full bg-blue-600 text-white rounded-xl font-bold py-3 text-sm hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
+                  >
+                     Dejar reseña en Google
+                  </a>
+                  <button onClick={() => setBillSuccessMessage(false)} className="w-full py-3 text-slate-400 font-bold text-sm hover:text-slate-600 transition-colors">
+                     No, gracias
+                  </button>
+               </div>
+            </motion.div>
+          )}
         </motion.div>
       </motion.div>
     )}
@@ -1446,11 +1614,12 @@ const AdminDashboardScreen: React.FC<{
   menuItems: MenuItem[];
   updateMenuItem: (item: MenuItem) => void;
   billRequests: BillRequest[];
+  feedbacks: Feedback[];
   updateBillStatus: (id: string, s: 'PENDING' | 'COMPLETED') => void;
   language: Language;
-}> = ({ setCurrentScreen, orders, updateOrderStatus, clearOrders, menuItems, updateMenuItem, billRequests, updateBillStatus, language }) => {
+}> = ({ setCurrentScreen, orders, updateOrderStatus, clearOrders, menuItems, updateMenuItem, billRequests, feedbacks, updateBillStatus, language }) => {
   const t = UI_TRANSLATIONS[language];
-  const [activeTab, setActiveTab] = useState<'INICIO' | 'RESUMENES' | 'CARTA' | 'CUENTAS' | 'CALCULADORA' | 'IA'>('INICIO');
+  const [activeTab, setActiveTab] = useState<'INICIO' | 'RESUMENES' | 'CARTA' | 'CUENTAS' | 'CALCULADORA' | 'RESEÑAS'>('INICIO');
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
   
   // Add state for selected date
@@ -1550,6 +1719,14 @@ const AdminDashboardScreen: React.FC<{
   const dailyTotal = dailyBills.reduce((sum, b) => sum + (b.total || 0), 0);
   const dailyTotalCard = dailyBills.filter(b => b.paymentMethod === 'CARD' || b.paymentMethod === 'ONLINE').reduce((sum, b) => sum + (b.total || 0), 0);
   const dailyTotalCash = dailyBills.filter(b => b.paymentMethod === 'CASH').reduce((sum, b) => sum + (b.total || 0), 0);
+
+  const markFeedbackAsRead = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'feedbacks', id), { status: 'READ' });
+    } catch(e) {
+      handleFirestoreError(e, OperationType.UPDATE, 'feedbacks');
+    }
+  };
 
   // Monthly totals
   const [summaryMonthlyYear, summaryMonthlyMonth] = summaryMonthlyDate.split('-');
@@ -1786,16 +1963,20 @@ const AdminDashboardScreen: React.FC<{
                  </button>
                  <div className="pt-4 mt-2 border-t border-slate-800">
                      <button 
-                         onClick={() => setActiveTab('IA')}
-                         className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all font-bold text-sm tracking-wide group overflow-hidden relative ${activeTab === 'IA' ? 'text-white' : 'text-indigo-300 hover:text-white'}`}
+                         onClick={() => setActiveTab('RESEÑAS')}
+                         className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all font-bold text-sm tracking-wide group overflow-hidden relative ${activeTab === 'RESEÑAS' ? 'text-white' : 'text-slate-400 hover:text-white'}`}
                      >
-                         {activeTab === 'IA' && <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 shadow-lg opacity-100 transition-opacity"></div>}
-                         {!activeTab && <div className="absolute inset-0 bg-indigo-500/10 group-hover:bg-indigo-500/20 opacity-100 transition-opacity"></div>}
+                         {activeTab === 'RESEÑAS' && <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-rose-600 shadow-lg opacity-100 transition-opacity"></div>}
+                         {!activeTab && <div className="absolute inset-0 bg-red-500/10 group-hover:bg-red-500/20 opacity-100 transition-opacity"></div>}
                          
                          <div className="flex items-center gap-3 relative z-10 w-full rounded-xl">
-                             <Sparkles size={18} className={`${activeTab === 'IA' ? 'text-white' : 'text-indigo-400 group-hover:text-amber-300'} transition-colors`} />
-                             Estrategia IA
-                             <span className="ml-auto bg-indigo-500/20 text-indigo-300 group-hover:text-white px-2 py-0.5 rounded-full text-[10px] uppercase font-black tracking-widest border border-indigo-500/30">Nuevo</span>
+                             <AlertCircle size={18} className={`${activeTab === 'RESEÑAS' ? 'text-white' : 'text-red-400 group-hover:text-red-300'} transition-colors`} />
+                             Malas Reseñas
+                             {feedbacks.filter(f => f.status === 'UNREAD').length > 0 && (
+                                 <span className="ml-auto bg-red-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                     {feedbacks.filter(f => f.status === 'UNREAD').length}
+                                 </span>
+                             )}
                          </div>
                      </button>
                  </div>
@@ -2080,6 +2261,7 @@ const AdminDashboardScreen: React.FC<{
                           <div className="p-4 border-b border-slate-200 bg-slate-50 flex font-bold text-slate-500 text-sm">
                               <div className="flex-1">Plato</div>
                               <div className="w-32 text-center">Estado</div>
+                              <div className="w-32 text-center" title="Quedan pocas unidades (Efecto FOMO)">Pocas Unds.</div>
                               <div className="w-32 text-right">Precio</div>
                           </div>
                           <div className="divide-y divide-slate-100">
@@ -2104,6 +2286,19 @@ const AdminDashboardScreen: React.FC<{
                                               <span className="sr-only">Toggle stock</span>
                                               <span
                                                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${!item.outOfStock ? 'translate-x-6' : 'translate-x-1'}`}
+                                              />
+                                          </button>
+                                      </div>
+
+                                      <div className="w-32 flex justify-center">
+                                          <button
+                                              onClick={() => updateMenuItem({ ...item, fewUnitsLeft: !item.fewUnitsLeft })}
+                                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${item.fewUnitsLeft ? 'bg-red-500' : 'bg-slate-300'}`}
+                                              title="Marcar como 'pocas unidades' (FOMO)"
+                                          >
+                                              <span className="sr-only">Toggle scarcity</span>
+                                              <span
+                                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${item.fewUnitsLeft ? 'translate-x-6' : 'translate-x-1'}`}
                                               />
                                           </button>
                                       </div>
@@ -2290,102 +2485,59 @@ const AdminDashboardScreen: React.FC<{
                   </div>
               )}
               {activeTab === 'CALCULADORA' && <CashCalculator />}
-              {activeTab === 'IA' && (
-                  <div className="p-6 md:p-8 flex-1 bg-gradient-to-br from-indigo-50/30 to-purple-50/50 min-h-full">
-                      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+              {activeTab === 'RESEÑAS' && (
+                  <div className="animate-fade-in pb-12 w-full max-w-4xl mx-auto p-6 md:p-8">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                           <div>
-                              <h1 className="text-3xl font-serif font-black text-slate-900 mb-1 flex items-center gap-3">
-                                  Nexus AI Insights
-                                  <span className="bg-gradient-to-r from-indigo-600 to-purple-600 text-transparent bg-clip-text text-sm tracking-widest font-bold uppercase border border-indigo-200 bg-white px-3 py-1 rounded-full shadow-sm">
-                                      BETA
-                                  </span>
-                              </h1>
-                              <p className="text-slate-500 text-sm font-medium mt-2">
-                                  Revoluciona tu restaurante descubriendo patrones ocultos y maximizando ganancias.
-                              </p>
-                          </div>
-                      </header>
-
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                          <div className="bg-white p-6 md:p-8 rounded-3xl shadow-xl shadow-indigo-900/5 border border-indigo-100 flex flex-col items-start relative overflow-hidden group">
-                              <div className="absolute -right-6 -top-6 w-32 h-32 bg-amber-400 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity"></div>
-                              <div className="bg-amber-100 text-amber-700 p-3 rounded-2xl mb-4 relative z-10 border border-amber-200">
-                                  <Lightbulb size={24} />
-                              </div>
-                              <h3 className="text-xl font-bold text-slate-900 mb-2 relative z-10">Oportunidad de Venta Cruzada</h3>
-                              <p className="text-slate-600 text-sm leading-relaxed mb-4 relative z-10">
-                                  Hemos detectado que el <strong className="text-slate-900">73%</strong> de tus clientes que piden "Croquetas Caseras" estarían dispuestos a pedir un "Vino Tinto".
-                              </p>
-                              <div className="mt-auto bg-amber-50/50 border border-amber-100 w-full p-4 rounded-xl relative z-10">
-                                  <p className="text-amber-800 text-sm font-bold flex items-center gap-2">
-                                      <TrendingUp size={16}/> Impacto: +1,250€ / mes
-                                  </p>
-                                  <p className="text-xs text-amber-700 mt-1">Sugerencia: Crea un "Pack Aperitivo" combinando ambos al instante.</p>
-                              </div>
-                          </div>
-
-                          <div className="bg-indigo-900 p-6 md:p-8 rounded-3xl shadow-xl shadow-indigo-900/20 border border-indigo-800 flex flex-col items-start relative overflow-hidden group">
-                              <div className="absolute right-0 bottom-0 w-64 h-64 bg-blue-600 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity translate-x-1/4 translate-y-1/4"></div>
-                              <div className="bg-indigo-800/50 text-indigo-300 p-3 rounded-2xl mb-4 relative z-10 border border-indigo-700">
-                                  <BrainCircuit size={24} />
-                              </div>
-                              <h3 className="text-xl font-bold text-white mb-2 relative z-10">Predicción de Demanda</h3>
-                              <p className="text-indigo-200 text-sm leading-relaxed mb-4 relative z-10">
-                                  Según el pronóstico del clima y tu histórico, esperamos un <strong>aumento del 40%</strong> en las mesas de terraza para este viernes.
-                              </p>
-                              <div className="mt-auto bg-black/20 border border-white/10 w-full p-4 rounded-xl relative z-10 backdrop-blur-sm">
-                                  <p className="text-emerald-400 text-sm font-bold flex items-center gap-2">
-                                      <Zap size={16}/> Estrategia accionable
-                                  </p>
-                                  <p className="text-xs text-indigo-300 mt-1">Sugerencia: Refuerza cerveza de barril y asigna camarero extra.</p>
-                              </div>
-                          </div>
-
-                          <div className="bg-white p-6 md:p-8 rounded-3xl shadow-xl shadow-red-900/5 border border-red-100 flex flex-col items-start relative overflow-hidden group hover:border-red-200 transition-colors">
-                              <div className="absolute -left-6 -bottom-6 w-32 h-32 bg-red-400 rounded-full blur-3xl opacity-10 group-hover:opacity-20 transition-opacity"></div>
-                              <div className="bg-red-100 text-red-600 p-3 rounded-2xl mb-4 relative z-10 border border-red-200">
-                                  <AlertCircle size={24} />
-                              </div>
-                              <h3 className="text-xl font-bold text-slate-900 mb-2 relative z-10">Prevención de Mermas</h3>
-                              <p className="text-slate-600 text-sm leading-relaxed mb-4 relative z-10">
-                                  El ritmo de ventas del <strong className="text-slate-900">Solomillo</strong> ha caído. Tienes 15 kg en cámara que deben salir en 48 horas para evitar pérdidas.
-                              </p>
-                              <div className="mt-auto bg-red-50/50 border border-red-100 w-full p-4 rounded-xl relative z-10">
-                                  <p className="text-red-700 text-sm font-bold flex items-center gap-2">
-                                      <TrendingDown size={16}/> Riesgo: -350€ en stock
-                                  </p>
-                                  <p className="text-xs text-red-600 mt-1">Sugerencia: Añádelo hoy a "Sugerencias del Chef" o ofrécelo como especial.</p>
-                              </div>
+                              <h2 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                                  <AlertCircle className="text-red-500 w-8 h-8" /> Malas Reseñas
+                              </h2>
+                              <p className="text-slate-500 mt-1">Interceptadas antes de llegar a Google Maps.</p>
                           </div>
                       </div>
 
-                      <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200">
-                          <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2 border-b border-slate-100 pb-4">
-                              <BarChart3 size={20} className="text-blue-500" />
-                              Ingeniería de Menú (Matriz BCG)
-                          </h3>
-                          <div className="space-y-4">
-                              {[
-                                  { name: "Tiramisú Casero", category: "Estrella",  action: "Destacar en la carta. Alto margen y muy popular.", icon: <Sparkles size={16} />, color: "text-amber-600", bg: "bg-amber-100" },
-                                  { name: "Menú del Día", category: "Caballo de Batalla", action: "Alta popularidad pero bajo margen. Sugerimos subir el precio 0.50€.", icon: <TrendingUp size={16} />, color: "text-blue-600", bg: "bg-blue-100" },
-                                  { name: "Ensalada Simple", category: "Perro",  action: "Baja popularidad y bajo margen. Considerar eliminar o reemplazar.", icon: <Trash2 size={16} />, color: "text-red-600", bg: "bg-red-100" },
-                              ].map((item, idx) => (
-                                  <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-4 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-100 gap-4">
-                                      <div className="flex items-start gap-4">
-                                          <div className={`p-2 rounded-lg ${item.bg} ${item.color} shrink-0`}>
-                                              {item.icon}
+                      <div className="grid grid-cols-1 gap-4">
+                          {feedbacks.filter(f => f.status === 'UNREAD').length === 0 ? (
+                              <div className="py-12 flex flex-col items-center justify-center text-slate-400 bg-white rounded-2xl border border-slate-200 border-dashed">
+                                  <Star size={48} className="mb-4 opacity-50 text-slate-300" />
+                                  <p className="font-medium">No hay reseñas pendientes.</p>
+                              </div>
+                          ) : (
+                              feedbacks.filter(f => f.status === 'UNREAD').sort((a, b) => b.timestamp - a.timestamp).map(feedback => (
+                                  <div key={feedback.id} className={`bg-white p-5 rounded-xl shadow-sm border ${feedback.status === 'UNREAD' ? 'border-red-200 ring-2 ring-red-500/10' : 'border-slate-200'} flex flex-col gap-4`}>
+                                      <div className="flex flex-col sm:flex-row gap-4 sm:items-start justify-between">
+                                          <div className="flex-1">
+                                              <div className="flex items-center gap-2 mb-2">
+                                                  <div className="flex">
+                                                      {[1, 2, 3, 4, 5].map(star => (
+                                                          <Star key={star} size={16} className={feedback.rating >= star ? 'text-amber-400' : 'text-slate-200'} fill={feedback.rating >= star ? 'currentColor' : 'none'} />
+                                                      ))}
+                                                  </div>
+                                                  <span className="text-xs font-bold text-slate-400">
+                                                      {new Date(feedback.timestamp).toLocaleString()}
+                                                  </span>
+                                                  {feedback.status === 'UNREAD' && (
+                                                      <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Nuevo</span>
+                                                  )}
+                                              </div>
+                                              <p className="text-slate-700 font-medium text-sm mb-2">&quot;{feedback.comment || 'Sin comentario'}&quot;</p>
+                                              <div className="text-xs text-slate-500 font-bold bg-slate-50 inline-block px-3 py-1 rounded-md">
+                                                  Mesa {feedback.tableNumber} • {feedback.location}
+                                              </div>
                                           </div>
-                                          <div>
-                                              <p className="font-bold text-slate-900">{item.name}</p>
-                                              <p className="text-xs text-slate-500 mt-0.5">{item.action}</p>
-                                          </div>
+                                          {feedback.status === 'UNREAD' && (
+                                              <button 
+                                                  onClick={() => markFeedbackAsRead(feedback.id)}
+                                                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold py-2 px-4 rounded-xl transition-colors shrink-0"
+                                              >
+                                                  Marcar Leído
+                                              </button>
+                                          )}
                                       </div>
-                                      <span className={`text-[10px] uppercase font-black px-3 py-1 rounded-full whitespace-nowrap self-start sm:self-auto ${item.bg} ${item.color}`}>
-                                          {item.category}
-                                      </span>
+                                      <FeedbackAIInsight feedback={feedback} />
                                   </div>
-                              ))}
-                          </div>
+                              ))
+                          )}
                       </div>
                   </div>
               )}
@@ -2443,6 +2595,9 @@ const App: React.FC = () => {
   // Bill Requests State
   const [billRequests, setBillRequests] = useState<BillRequest[]>([]);
   
+  // Feedback State
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  
   // Menu State
   const [menuItems, setMenuItems] = useState<MenuItem[]>(MENU_ITEMS);
 
@@ -2472,6 +2627,19 @@ const App: React.FC = () => {
       setBillRequests(billsData);
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'bills');
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Sync feedbacks
+  useEffect(() => {
+    const q = query(collection(db, 'feedbacks'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const feedbacksData: Feedback[] = snapshot.docs.map(doc => doc.data() as Feedback);
+      setFeedbacks(feedbacksData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'feedbacks');
     });
 
     return () => unsubscribe();
@@ -2637,11 +2805,30 @@ const App: React.FC = () => {
     try {
       await setDoc(doc(db, 'bills', newBillId), newBill);
       setBillSuccessMessage(true);
-      setTimeout(() => {
-        setBillSuccessMessage(false);
-      }, 10000);
     } catch(error) {
       handleFirestoreError(error, OperationType.WRITE, 'bills');
+    }
+  };
+
+  const handleSubmitFeedback = async (rating: number, comment: string) => {
+    if (!selectedLocation || !selectedTable) return;
+
+    const newFeedbackId = Math.random().toString(36).substring(2, 9);
+    const newFeedback: Feedback = {
+      id: newFeedbackId,
+      rating,
+      comment,
+      location: selectedLocation,
+      tableNumber: selectedTable,
+      timestamp: Date.now(),
+      status: 'UNREAD'
+    };
+
+    try {
+      await setDoc(doc(db, 'feedbacks', newFeedbackId), newFeedback);
+      setBillSuccessMessage(false);
+    } catch(error) {
+      handleFirestoreError(error, OperationType.WRITE, 'feedbacks');
     }
   };
 
@@ -2806,6 +2993,7 @@ const App: React.FC = () => {
               getItemQuantity={getItemQuantity}
               handleSendOrder={handleSendOrder}
               handleRequestBill={handleRequestBill}
+              handleSubmitFeedback={handleSubmitFeedback}
               selectedCategory={selectedCategory}
               setSelectedCategory={setSelectedCategory}
               selectedLocation={selectedLocation}
@@ -2813,6 +3001,7 @@ const App: React.FC = () => {
               guestCount={guestCount}
               orderSuccessMessage={orderSuccessMessage}
               billSuccessMessage={billSuccessMessage}
+              setBillSuccessMessage={setBillSuccessMessage}
               language={language}
               menuItems={menuItems}
               hasActiveOrders={orders.some(o => o.location === selectedLocation && o.tableNumber === selectedTable && !o.paid)}
@@ -2851,6 +3040,7 @@ const App: React.FC = () => {
               menuItems={menuItems}
               updateMenuItem={updateMenuItem}
               billRequests={billRequests}
+              feedbacks={feedbacks}
               updateBillStatus={updateBillStatus}
               language={language}
             />

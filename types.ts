@@ -27,6 +27,7 @@ export interface MenuItem {
   category: MenuCategory;
   image: string;
   outOfStock?: boolean;
+  fewUnitsLeft?: boolean;
   allergens?: string[];
 }
 
@@ -53,6 +54,16 @@ export interface BillRequest {
   paymentMethod?: 'CARD' | 'CASH' | 'ONLINE';
   splitWays?: number;
   itemsToPay?: { id: string; name: string; quantity: number; price: number }[];
+}
+
+export interface Feedback {
+  id: string;
+  rating: number;
+  comment: string;
+  location: string;
+  tableNumber: string;
+  timestamp: number;
+  status: 'UNREAD' | 'READ';
 }
 
 export interface Order {
