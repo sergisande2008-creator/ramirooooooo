@@ -26,9 +26,10 @@ Escribe un consejo directo, cortísimo (máximo 2 líneas) y 100% accionable sob
         contents: prompt,
       });
       setInsight(response.text || t.admin_ai_error);
-    } catch (err) {
-      console.error(err);
-      setInsight(t.admin_ai_error);
+    } catch (err: any) {
+      console.error("Coach AI Error:", err);
+      // Fallback message with the error for debugging
+      setInsight(`${t.admin_ai_error} (${err.message || 'Unknown'})`);
     } finally {
       setLoading(false);
     }
