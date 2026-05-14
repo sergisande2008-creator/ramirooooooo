@@ -255,6 +255,17 @@ const sendWebhook = async (url: string, order: Order) => {
   }
 };
 
+// --- HELPERS ---
+
+const useGhostClickGuard = (delay = 500) => {
+  const [isReady, setIsReady] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setIsReady(true), delay);
+    return () => clearTimeout(timer);
+  }, [delay]);
+  return isReady;
+};
+
 // --- SUB-COMPONENTS ---
 
 // 1. Landing Screen (REDISEÑADA)
@@ -265,6 +276,7 @@ const LandingScreen: React.FC<{
   setLanguage: (l: Language) => void;
 }> = ({ setCurrentScreen, setChefPin, language, setLanguage }) => {
   const t = UI_TRANSLATIONS[language];
+  const isClickable = useGhostClickGuard();
   return (
   <div className="min-h-screen bg-[#1a160f] flex flex-col items-center justify-center p-6 relative overflow-hidden">
     {/* Fondo sutil */}
@@ -349,7 +361,9 @@ const LandingScreen: React.FC<{
             className="w-full space-y-3"
           >
             <button 
-              onClick={() => setTimeout(() => setCurrentScreen(Screen.LOCATION_SELECTION), 150)} 
+              onClick={() => {
+                if(isClickable) setCurrentScreen(Screen.LOCATION_SELECTION);
+              }} 
               className="w-full bg-[#1a160f] text-[#f5f2ed] border border-[#332c1e] h-14 rounded-xl text-[13px] font-bold uppercase tracking-widest hover:bg-[#332c1e] active:bg-[#4a402d] transition-all duration-300 flex items-center justify-center"
             >
               {t.enter_as_diner}
@@ -374,6 +388,7 @@ const LocationSelectionScreen: React.FC<{
   language: Language;
 }> = ({ setCurrentScreen, setSelectedLocation, language }) => {
   const t = UI_TRANSLATIONS[language];
+  const isClickable = useGhostClickGuard();
   return (
   <div className="min-h-screen bg-slate-50 flex flex-col p-6">
     <div className="flex items-center mb-8 pt-4">
@@ -400,8 +415,9 @@ const LocationSelectionScreen: React.FC<{
         <button
           onClick={(e) => {
             e.preventDefault();
+            if (!isClickable) return;
             setSelectedLocation('DENTRO');
-            setTimeout(() => setCurrentScreen(Screen.TABLE_SELECTION), 150);
+            setCurrentScreen(Screen.TABLE_SELECTION);
           }}
           className="bg-white rounded-3xl p-8 flex flex-row items-center gap-6 shadow-sm border border-slate-100 hover:border-blue-500 hover:shadow-md active:scale-95 transition-all group relative overflow-hidden"
         >
@@ -417,8 +433,9 @@ const LocationSelectionScreen: React.FC<{
         <button
           onClick={(e) => {
             e.preventDefault();
+            if (!isClickable) return;
             setSelectedLocation('FUERA');
-            setTimeout(() => setCurrentScreen(Screen.TABLE_SELECTION), 150);
+            setCurrentScreen(Screen.TABLE_SELECTION);
           }}
           className="bg-white rounded-3xl p-8 flex flex-row items-center gap-6 shadow-sm border border-slate-100 hover:border-blue-500 hover:shadow-md active:scale-95 transition-all group relative overflow-hidden"
         >
@@ -444,6 +461,7 @@ const TableSelectionScreen: React.FC<{
   language: Language;
 }> = ({ setCurrentScreen, setSelectedTable, selectedLocation, language }) => {
   const t = UI_TRANSLATIONS[language];
+  const isClickable = useGhostClickGuard();
   return (
   <div className="min-h-screen bg-slate-50 flex flex-col p-6">
     <div className="flex items-center mb-8 pt-4">
@@ -470,8 +488,9 @@ const TableSelectionScreen: React.FC<{
             key={table}
             onClick={(e) => {
               e.preventDefault();
+              if (!isClickable) return;
               setSelectedTable(table);
-              setTimeout(() => setCurrentScreen(Screen.GUEST_SELECTION), 150);
+              setCurrentScreen(Screen.GUEST_SELECTION);
             }}
             className="aspect-square bg-white rounded-3xl flex flex-col items-center justify-center shadow-sm border border-slate-100 hover:border-blue-500 hover:shadow-md active:scale-95 transition-all group relative overflow-hidden"
           >
@@ -496,6 +515,7 @@ const GuestSelectionScreen: React.FC<{
   language: Language;
 }> = ({ setCurrentScreen, guestCount, setGuestCount, selectedLocation, selectedTable, language }) => {
   const t = UI_TRANSLATIONS[language];
+  const isClickable = useGhostClickGuard();
   return (
   <div className="min-h-screen bg-slate-50 flex flex-col p-6">
     <div className="flex items-center mb-8 pt-4 relative z-20">
@@ -549,7 +569,8 @@ const GuestSelectionScreen: React.FC<{
           className="bg-slate-900 text-white max-w-xs shadow-xl shadow-slate-900/20"
           onClick={(e) => {
             e.preventDefault();
-            setTimeout(() => setCurrentScreen(Screen.ALLERGIES_SELECTION), 150);
+            if (!isClickable) return;
+            setCurrentScreen(Screen.ALLERGIES_SELECTION);
           }}
         >
           {t.start}
@@ -568,6 +589,7 @@ const AllergiesSelectionScreen: React.FC<{
   language: Language;
 }> = ({ setCurrentScreen, userAllergies, setUserAllergies, language }) => {
   const t = UI_TRANSLATIONS[language];
+  const isClickable = useGhostClickGuard();
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col p-6">
       <div className="flex items-center mb-8 pt-4 relative z-20">
@@ -597,7 +619,8 @@ const AllergiesSelectionScreen: React.FC<{
             className="bg-slate-900 text-white max-w-xs shadow-xl shadow-slate-900/20"
             onClick={(e) => {
               e.preventDefault();
-              setTimeout(() => setCurrentScreen(Screen.MENU), 150);
+              if (!isClickable) return;
+              setCurrentScreen(Screen.MENU);
             }}
           >
             {userAllergies.trim() ? t.continue_btn : t.no_allergies}
