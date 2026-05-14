@@ -349,8 +349,8 @@ const LandingScreen: React.FC<{
             className="w-full space-y-3"
           >
             <button 
-              onClick={() => setCurrentScreen(Screen.LOCATION_SELECTION)} 
-              className="w-full bg-[#1a160f] text-[#f5f2ed] border border-[#332c1e] h-14 rounded-xl text-[13px] font-bold uppercase tracking-widest hover:bg-[#332c1e] transition-all duration-300 flex items-center justify-center"
+              onClick={() => setTimeout(() => setCurrentScreen(Screen.LOCATION_SELECTION), 150)} 
+              className="w-full bg-[#1a160f] text-[#f5f2ed] border border-[#332c1e] h-14 rounded-xl text-[13px] font-bold uppercase tracking-widest hover:bg-[#332c1e] active:bg-[#4a402d] transition-all duration-300 flex items-center justify-center"
             >
               {t.enter_as_diner}
             </button>
@@ -398,9 +398,10 @@ const LocationSelectionScreen: React.FC<{
         className="grid grid-cols-1 gap-6 w-full max-w-sm"
       >
         <button
-          onClick={() => {
+          onClick={(e) => {
+            e.preventDefault();
             setSelectedLocation('DENTRO');
-            setCurrentScreen(Screen.TABLE_SELECTION);
+            setTimeout(() => setCurrentScreen(Screen.TABLE_SELECTION), 150);
           }}
           className="bg-white rounded-3xl p-8 flex flex-row items-center gap-6 shadow-sm border border-slate-100 hover:border-blue-500 hover:shadow-md active:scale-95 transition-all group relative overflow-hidden"
         >
@@ -414,9 +415,10 @@ const LocationSelectionScreen: React.FC<{
         </button>
 
         <button
-          onClick={() => {
+          onClick={(e) => {
+            e.preventDefault();
             setSelectedLocation('FUERA');
-            setCurrentScreen(Screen.TABLE_SELECTION);
+            setTimeout(() => setCurrentScreen(Screen.TABLE_SELECTION), 150);
           }}
           className="bg-white rounded-3xl p-8 flex flex-row items-center gap-6 shadow-sm border border-slate-100 hover:border-blue-500 hover:shadow-md active:scale-95 transition-all group relative overflow-hidden"
         >
@@ -466,9 +468,10 @@ const TableSelectionScreen: React.FC<{
         {TABLES.map((table, i) => (
           <button
             key={table}
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
               setSelectedTable(table);
-              setCurrentScreen(Screen.GUEST_SELECTION);
+              setTimeout(() => setCurrentScreen(Screen.GUEST_SELECTION), 150);
             }}
             className="aspect-square bg-white rounded-3xl flex flex-col items-center justify-center shadow-sm border border-slate-100 hover:border-blue-500 hover:shadow-md active:scale-95 transition-all group relative overflow-hidden"
           >
@@ -544,7 +547,10 @@ const GuestSelectionScreen: React.FC<{
         <Button 
           fullWidth 
           className="bg-slate-900 text-white max-w-xs shadow-xl shadow-slate-900/20"
-          onClick={() => setCurrentScreen(Screen.ALLERGIES_SELECTION)}
+          onClick={(e) => {
+            e.preventDefault();
+            setTimeout(() => setCurrentScreen(Screen.ALLERGIES_SELECTION), 150);
+          }}
         >
           {t.start}
         </Button>
@@ -589,7 +595,10 @@ const AllergiesSelectionScreen: React.FC<{
           <Button 
             fullWidth 
             className="bg-slate-900 text-white max-w-xs shadow-xl shadow-slate-900/20"
-            onClick={() => setCurrentScreen(Screen.MENU)}
+            onClick={(e) => {
+              e.preventDefault();
+              setTimeout(() => setCurrentScreen(Screen.MENU), 150);
+            }}
           >
             {userAllergies.trim() ? t.continue_btn : t.no_allergies}
           </Button>
