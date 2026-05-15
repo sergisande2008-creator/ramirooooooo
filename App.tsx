@@ -34,7 +34,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('touchstart', unlockAudio);
 }
 
-const playTone = (type: 'pop' | 'bells') => {
+const playTone = (type: 'pop' | 'bells' | 'horn') => {
   try {
     const ctx = initAudio();
     if (!ctx) return;
@@ -75,6 +75,29 @@ const playTone = (type: 'pop' | 'bells') => {
       playBell(1046.50, 0); // C6
       playBell(1318.51, 0.15); // E6
       playBell(1567.98, 0.3); // G6
+    } else if (type === 'horn') {
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      osc1.connect(gainNode);
+      osc2.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      osc1.type = 'sawtooth';
+      osc2.type = 'square';
+      osc1.frequency.setValueAtTime(300, ctx.currentTime);
+      osc2.frequency.setValueAtTime(305, ctx.currentTime); // Slight detune
+      
+      gainNode.gain.setValueAtTime(0, ctx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0.1, ctx.currentTime + 0.4);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      
+      osc1.start(ctx.currentTime);
+      osc2.start(ctx.currentTime);
+      osc1.stop(ctx.currentTime + 0.6);
+      osc2.stop(ctx.currentTime + 0.6);
     }
   } catch (e) {
     // Ignore audio errors
@@ -802,35 +825,39 @@ const MenuScreen: React.FC<{
 
             {/* Menu List */}
             <div className="space-y-5">
-              {menuItems
-                .filter(item => selectedCategory === MenuCategory.ALL || item.category === selectedCategory)
-                .map((item, i) => {
-                  const qty = getItemQuantity(item.id);
-                  // Translate
-                  const translatedItem = MENU_TRANSLATIONS[item.id]?.[language] || item;
-                  const { name, description } = translatedItem;
+              {(() => {
+                const normalizeText = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                const allergyWords = userAllergies.trim() 
+                  ? userAllergies.split(/[\s,]+/).map(normalizeText).filter(w => w.length > 2)
+                  : [];
 
-                  const hasAllergyWarning = userAllergies.trim() && (() => {
-                    const normalizeText = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-                    const words = userAllergies.split(/[\s,]+/).map(normalizeText).filter(w => w.length > 2);
-                    const normalizedName = normalizeText(name);
-                    const normalizedDesc = normalizeText(description);
-                    const normalizedAllergens = item.allergens?.map(normalizeText) || [];
-                    
-                    const expandedAllergens: string[] = [];
-                    normalizedAllergens.forEach(allergen => {
-                      expandedAllergens.push(allergen);
-                      if (ALLERGEN_MAPPING[allergen]) {
-                        expandedAllergens.push(...ALLERGEN_MAPPING[allergen].map(normalizeText));
-                      }
-                    });
+                return menuItems
+                  .filter(item => selectedCategory === MenuCategory.ALL || item.category === selectedCategory)
+                  .map((item, i) => {
+                    const qty = getItemQuantity(item.id);
+                    // Translate
+                    const translatedItem = MENU_TRANSLATIONS[item.id]?.[language] || item;
+                    const { name, description } = translatedItem;
 
-                    return words.some(word => 
-                      normalizedName.includes(word) || 
-                      normalizedDesc.includes(word) ||
-                      expandedAllergens.some(a => a.includes(word))
-                    );
-                  })();
+                    const hasAllergyWarning = allergyWords.length > 0 && (() => {
+                      const normalizedName = normalizeText(name);
+                      const normalizedDesc = normalizeText(description);
+                      const normalizedAllergens = item.allergens?.map(normalizeText) || [];
+                      
+                      const expandedAllergens: string[] = [];
+                      normalizedAllergens.forEach(allergen => {
+                        expandedAllergens.push(allergen);
+                        if (ALLERGEN_MAPPING[allergen]) {
+                          expandedAllergens.push(...ALLERGEN_MAPPING[allergen].map(normalizeText));
+                        }
+                      });
+
+                      return allergyWords.some(word => 
+                        normalizedName.includes(word) || 
+                        normalizedDesc.includes(word) ||
+                        expandedAllergens.some(a => a.includes(word))
+                      );
+                    })();
 
                   const getScarcityMessage = () => {
                     if (item.fewUnitsLeft) {
@@ -932,7 +959,7 @@ const MenuScreen: React.FC<{
                     </div>
                   </div>
                 );
-              })}
+              })})()}
             </div>
         </>
       )}
@@ -1660,17 +1687,7 @@ const AdminDashboardScreen: React.FC<{
          });
 
          if (newRequests.length > 0) {
-             if ('speechSynthesis' in window) {
-                 newRequests.forEach(key => {
-                     const parts = key.split('-');
-                     const tableText = parts[parts.length - 1];
-                     const msg = new SpeechSynthesisUtterance(`Han pedido la cuenta de la mesa ${tableText}`);
-                     msg.lang = 'es-ES';
-                     msg.rate = 1.0;
-                     msg.pitch = 1.0;
-                     window.speechSynthesis.speak(msg);
-                 });
-             }
+             playTone('horn');
          }
      }
 
@@ -1678,13 +1695,15 @@ const AdminDashboardScreen: React.FC<{
   }, [billRequests, orders]);
 
   // Filter and sort orders
-  const sortedOrders = [...orders]
-    .filter(order => {
-        const orderDate = new Date(order.timestamp);
-        const orderDateString = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}-${String(orderDate.getDate()).padStart(2, '0')}`;
-        return orderDateString === selectedDate;
-    })
-    .sort((a, b) => b.timestamp - a.timestamp);
+  const sortedOrders = useMemo(() => {
+    return [...orders]
+      .filter(order => {
+          const orderDate = new Date(order.timestamp);
+          const orderDateString = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}-${String(orderDate.getDate()).padStart(2, '0')}`;
+          return orderDateString === selectedDate;
+      })
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }, [orders, selectedDate]);
 
   const formatDate = (ts?: number) => {
       if (!ts) return '';
@@ -1712,15 +1731,16 @@ const AdminDashboardScreen: React.FC<{
   });
 
   // Summaries Calculations
-  const completedBills = billRequests.filter(b => b.status === 'COMPLETED');
+  const completedBills = useMemo(() => billRequests.filter(b => b.status === 'COMPLETED'), [billRequests]);
 
   // Daily totals
-  const dailyBills = completedBills.filter(
+  const dailyBills = useMemo(() => completedBills.filter(
       b => new Date(b.timestamp).toDateString() === new Date(summaryDailyDate).toDateString()
-  );
-  const dailyTotal = dailyBills.reduce((sum, b) => sum + (b.total || 0), 0);
-  const dailyTotalCard = dailyBills.filter(b => b.paymentMethod === 'CARD' || b.paymentMethod === 'ONLINE').reduce((sum, b) => sum + (b.total || 0), 0);
-  const dailyTotalCash = dailyBills.filter(b => b.paymentMethod === 'CASH').reduce((sum, b) => sum + (b.total || 0), 0);
+  ), [completedBills, summaryDailyDate]);
+  
+  const dailyTotal = useMemo(() => dailyBills.reduce((sum, b) => sum + (b.total || 0), 0), [dailyBills]);
+  const dailyTotalCard = useMemo(() => dailyBills.filter(b => b.paymentMethod === 'CARD' || b.paymentMethod === 'ONLINE').reduce((sum, b) => sum + (b.total || 0), 0), [dailyBills]);
+  const dailyTotalCash = useMemo(() => dailyBills.filter(b => b.paymentMethod === 'CASH').reduce((sum, b) => sum + (b.total || 0), 0), [dailyBills]);
 
   const markFeedbackAsRead = async (id: string) => {
     try {
@@ -1731,27 +1751,33 @@ const AdminDashboardScreen: React.FC<{
   };
 
   // Monthly totals
-  const [summaryMonthlyYear, summaryMonthlyMonth] = summaryMonthlyDate.split('-');
-  const monthlyBills = completedBills.filter(b => {
-      const billDate = new Date(b.timestamp);
-      return billDate.getMonth() === parseInt(summaryMonthlyMonth) - 1 && billDate.getFullYear() === parseInt(summaryMonthlyYear);
-  });
-  const monthlyTotal = monthlyBills.reduce((sum, b) => sum + (b.total || 0), 0);
-  const monthlyTotalCard = monthlyBills.filter(b => b.paymentMethod === 'CARD' || b.paymentMethod === 'ONLINE').reduce((sum, b) => sum + (b.total || 0), 0);
-  const monthlyTotalCash = monthlyBills.filter(b => b.paymentMethod === 'CASH').reduce((sum, b) => sum + (b.total || 0), 0);
+  const monthlyBills = useMemo(() => {
+    const [summaryMonthlyYear, summaryMonthlyMonth] = summaryMonthlyDate.split('-');
+    return completedBills.filter(b => {
+        const billDate = new Date(b.timestamp);
+        return billDate.getMonth() === parseInt(summaryMonthlyMonth) - 1 && billDate.getFullYear() === parseInt(summaryMonthlyYear);
+    });
+  }, [completedBills, summaryMonthlyDate]);
+  
+  const monthlyTotal = useMemo(() => monthlyBills.reduce((sum, b) => sum + (b.total || 0), 0), [monthlyBills]);
+  const monthlyTotalCard = useMemo(() => monthlyBills.filter(b => b.paymentMethod === 'CARD' || b.paymentMethod === 'ONLINE').reduce((sum, b) => sum + (b.total || 0), 0), [monthlyBills]);
+  const monthlyTotalCash = useMemo(() => monthlyBills.filter(b => b.paymentMethod === 'CASH').reduce((sum, b) => sum + (b.total || 0), 0), [monthlyBills]);
 
   // Global totals
-  const globalTotal = completedBills.reduce((sum, b) => sum + (b.total || 0), 0);
+  const globalTotal = useMemo(() => completedBills.reduce((sum, b) => sum + (b.total || 0), 0), [completedBills]);
   
-  const guestSessions = new Set();
-  let totalGuests = 0;
-  orders.forEach(o => {
-     const sessionKey = `${o.location}-${o.tableNumber}-${new Date(o.timestamp).toDateString()}`;
-     if (!guestSessions.has(sessionKey)) {
-         guestSessions.add(sessionKey);
-         totalGuests += (o.guestCount || 0);
-     }
-  });
+  const totalGuests = useMemo(() => {
+      const guestSessions = new Set();
+      let total = 0;
+      orders.forEach(o => {
+         const sessionKey = `${o.location}-${o.tableNumber}-${new Date(o.timestamp).toDateString()}`;
+         if (!guestSessions.has(sessionKey)) {
+             guestSessions.add(sessionKey);
+             total += (o.guestCount || 0);
+         }
+      });
+      return total;
+  }, [orders]);
 
   const averageTicket = completedBills.length > 0 ? (globalTotal / completedBills.length) : 0;
 
