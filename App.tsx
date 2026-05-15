@@ -27,6 +27,11 @@ const initAudio = () => {
 if (typeof window !== 'undefined') {
   const unlockAudio = () => {
     initAudio();
+    if ('speechSynthesis' in window) {
+      const msg = new SpeechSynthesisUtterance('');
+      msg.lang = 'es-ES';
+      window.speechSynthesis.speak(msg);
+    }
     window.removeEventListener('click', unlockAudio);
     window.removeEventListener('touchstart', unlockAudio);
   };
@@ -114,6 +119,29 @@ const playTone = async (type: 'pop' | 'bells' | 'horn') => {
     }
   } catch (e) {
     // Ignore audio errors
+  }
+};
+
+const playTTS = async (text: string) => {
+  const repeatedText = `${text}. ${text}. ${text}.`;
+  try {
+    // Attempt 1: Audio element via Google Translate TTS (works well in iframes if Web Speech API is blocked)
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(repeatedText)}&tl=es&client=tw-ob`;
+    const audio = new Audio(url);
+    await audio.play();
+  } catch (e) {
+    console.warn("Google TTS failed, falling back to Web Speech API", e);
+    // Attempt 2: Web Speech API
+    if ('speechSynthesis' in window) {
+      const msg = new SpeechSynthesisUtterance(repeatedText);
+      msg.lang = 'es-ES';
+      msg.rate = 1.0;
+      window.speechSynthesis.speak(msg);
+      
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+    }
   }
 };
 
@@ -1644,69 +1672,6 @@ const AdminDashboardScreen: React.FC<{
       return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   });
 
-  // Track fully requested tables for sound notifications
-  const prevFullyRequestedTables = useRef<Set<string> | null>(null);
-
-  useEffect(() => {
-     const pendingBills = billRequests.filter(b => b.status === 'PENDING').sort((a, b) => a.timestamp - b.timestamp);
-     const groupedBills = pendingBills.reduce((acc, bill) => {
-         const key = `${bill.location}-${bill.tableNumber}`;
-         if (!acc[key]) acc[key] = [];
-         acc[key].push(bill);
-         return acc;
-     }, {} as Record<string, BillRequest[]>);
-
-     const currentFullyRequested = new Set<string>();
-
-     Object.values(groupedBills).forEach((tableBillsRaw) => {
-         const tableBills = tableBillsRaw as BillRequest[];
-         const firstBill = tableBills[0];
-         let isFullyRequested = false;
-         const firstSplitBill = tableBills.find(b => b.splitWays !== undefined);
-         if (firstSplitBill) {
-             isFullyRequested = tableBills.length >= firstSplitBill.splitWays;
-         } else {
-             const activeTableOrders = orders.filter(o => o.location === firstBill.location && o.tableNumber === firstBill.tableNumber && !o.paid);
-             let totalUnpaidQty = 0;
-             activeTableOrders.forEach(o => {
-                 o.items.forEach(item => {
-                     totalUnpaidQty += item.quantity - (item.paidQuantity || 0);
-                 });
-             });
-             let totalRequestedQty = 0;
-             tableBills.forEach(b => {
-                 if (b.itemsToPay && b.itemsToPay.length > 0) {
-                     b.itemsToPay.forEach(item => {
-                         totalRequestedQty += item.quantity;
-                     });
-                 } else {
-                     totalRequestedQty += totalUnpaidQty; 
-                 }
-             });
-             isFullyRequested = totalUnpaidQty === 0 || totalRequestedQty >= totalUnpaidQty;
-         }
-         
-         if (isFullyRequested) {
-             currentFullyRequested.add(`${firstBill.location}-${firstBill.tableNumber}`);
-         }
-     });
-
-     if (prevFullyRequestedTables.current !== null) {
-         let newRequests: string[] = [];
-         currentFullyRequested.forEach(key => {
-             if (!prevFullyRequestedTables.current!.has(key)) {
-                 newRequests.push(key);
-             }
-         });
-
-         if (newRequests.length > 0) {
-             playTone('horn');
-         }
-     }
-
-     prevFullyRequestedTables.current = currentFullyRequested;
-  }, [billRequests, orders]);
-
   // Filter and sort orders
   const sortedOrders = useMemo(() => {
     return [...orders]
@@ -2686,6 +2651,73 @@ const App: React.FC = () => {
 
     return () => unsubscribe();
   }, []);
+
+  // Track fully requested tables for sound notifications globally
+  const prevFullyRequestedTables = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+     const pendingBills = billRequests.filter(b => b.status === 'PENDING').sort((a, b) => a.timestamp - b.timestamp);
+     const groupedBills = pendingBills.reduce((acc, bill) => {
+         const key = `${bill.location}-${bill.tableNumber}`;
+         if (!acc[key]) acc[key] = [];
+         acc[key].push(bill);
+         return acc;
+     }, {} as Record<string, BillRequest[]>);
+
+     const currentFullyRequested = new Set<string>();
+
+     Object.values(groupedBills).forEach((tableBillsRaw) => {
+         const tableBills = tableBillsRaw as BillRequest[];
+         const firstBill = tableBills[0];
+         let isFullyRequested = false;
+         const firstSplitBill = tableBills.find(b => b.splitWays !== undefined);
+         if (firstSplitBill) {
+             isFullyRequested = tableBills.length >= firstSplitBill.splitWays;
+         } else {
+             const activeTableOrders = orders.filter(o => o.location === firstBill.location && o.tableNumber === firstBill.tableNumber && !o.paid);
+             let totalUnpaidQty = 0;
+             activeTableOrders.forEach(o => {
+                 o.items.forEach(item => {
+                     totalUnpaidQty += item.quantity - (item.paidQuantity || 0);
+                 });
+             });
+             let totalRequestedQty = 0;
+             tableBills.forEach(b => {
+                 if (b.itemsToPay && b.itemsToPay.length > 0) {
+                     b.itemsToPay.forEach(item => {
+                         totalRequestedQty += item.quantity;
+                     });
+                 } else {
+                     totalRequestedQty += totalUnpaidQty; 
+                 }
+             });
+             isFullyRequested = totalUnpaidQty === 0 || totalRequestedQty >= totalUnpaidQty;
+         }
+         
+         if (isFullyRequested) {
+             currentFullyRequested.add(`${firstBill.location}-${firstBill.tableNumber}`);
+         }
+     });
+
+     if (prevFullyRequestedTables.current !== null) {
+         let newRequests: string[] = [];
+         currentFullyRequested.forEach(key => {
+             if (!prevFullyRequestedTables.current!.has(key)) {
+                 newRequests.push(key);
+             }
+         });
+
+         if (newRequests.length > 0) {
+             newRequests.forEach(key => {
+                 const parts = key.split('-');
+                 const tableText = parts[parts.length - 1];
+                 playTTS(`Han pedido la cuenta de la mesa ${tableText}`);
+             });
+         }
+     }
+
+     prevFullyRequestedTables.current = currentFullyRequested;
+  }, [billRequests, orders]);
 
   // Listen for table bill completion to kick user to landing and clear data
   const currentTableOrdersCount = selectedLocation && selectedTable 
