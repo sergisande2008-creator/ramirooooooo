@@ -122,21 +122,27 @@ const playTone = async (type: 'pop' | 'bells' | 'horn') => {
   }
 };
 
+let activeUtterance: SpeechSynthesisUtterance | null = null;
+
 const playTTS = async (text: string) => {
   const repeatedText = `${text}. ${text}. ${text}.`;
+  
+  // Siempre reproducimos un tono primero porque sabemos que el AudioContext nunca falla
+  playTone('pop');
+
   try {
     // Attempt 1: Audio element via Google Translate TTS (works well in iframes if Web Speech API is blocked)
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(repeatedText)}&tl=es&client=tw-ob`;
+    const url = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=es&q=${encodeURIComponent(repeatedText)}`;
     const audio = new Audio(url);
     await audio.play();
   } catch (e) {
     console.warn("Google TTS failed, falling back to Web Speech API", e);
     // Attempt 2: Web Speech API
     if ('speechSynthesis' in window) {
-      const msg = new SpeechSynthesisUtterance(repeatedText);
-      msg.lang = 'es-ES';
-      msg.rate = 1.0;
-      window.speechSynthesis.speak(msg);
+      activeUtterance = new SpeechSynthesisUtterance(repeatedText);
+      activeUtterance.lang = 'es-ES';
+      activeUtterance.rate = 1.0;
+      window.speechSynthesis.speak(activeUtterance);
       
       if (window.speechSynthesis.paused) {
         window.speechSynthesis.resume();
@@ -2562,6 +2568,10 @@ const App: React.FC = () => {
     if (window.location.pathname.startsWith('/cocina')) return Screen.KITCHEN_DASHBOARD;
     return Screen.LANDING;
   });
+  const currentScreenRef = useRef<Screen>(currentScreen);
+  useEffect(() => {
+    currentScreenRef.current = currentScreen;
+  }, [currentScreen]);
   const [selectedLocation, setSelectedLocation] = useState<'DENTRO' | 'FUERA' | null>(null);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [guestCount, setGuestCount] = useState<number>(2);
@@ -2598,6 +2608,7 @@ const App: React.FC = () => {
   
   // Kitchen/Orders State
   const [orders, setOrders] = useState<Order[]>([]);
+  const prevOrdersRef = useRef<Order[]>([]);
   
   // Bill Requests State
   const [billRequests, setBillRequests] = useState<BillRequest[]>([]);
@@ -2618,6 +2629,15 @@ const App: React.FC = () => {
     const q = query(collection(db, 'orders'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const ordersData: Order[] = snapshot.docs.map(doc => doc.data() as Order);
+      
+      // Play sound for new kitchen tickets
+      if (prevOrdersRef.current.length > 0) {
+        const newOrders = ordersData.filter(o => !prevOrdersRef.current.some(po => po.id === o.id));
+        if (newOrders.length > 0 && currentScreenRef.current === Screen.KITCHEN_DASHBOARD) {
+           playTone('bells');
+        }
+      }
+      prevOrdersRef.current = ordersData;
       setOrders(ordersData);
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'orders');
@@ -2707,7 +2727,7 @@ const App: React.FC = () => {
              }
          });
 
-         if (newRequests.length > 0) {
+         if (newRequests.length > 0 && currentScreenRef.current === Screen.ADMIN_DASHBOARD) {
              newRequests.forEach(key => {
                  const parts = key.split('-');
                  const tableText = parts[parts.length - 1];
