@@ -613,7 +613,7 @@ const MenuScreen: React.FC<{
 
   const topOrderedValue = useMemo(() => {
     let max = 0;
-    Object.values(itemStats).forEach(s => {
+    Object.values(itemStats).forEach((s: { totalOrdered: number }) => {
       if (s.totalOrdered > max) max = s.totalOrdered;
     });
     return max;
@@ -2216,7 +2216,8 @@ const AdminDashboardScreen: React.FC<{
                                       return acc;
                                   }, {} as Record<string, BillRequest[]>);
 
-                                  return Object.values(groupedBills).map(tableBills => {
+                                  return Object.values(groupedBills).map((tableBillsRaw) => {
+                                      const tableBills = tableBillsRaw as BillRequest[];
                                       const firstBill = tableBills[0];
                                       const tableNumber = firstBill.tableNumber;
                                       const location = firstBill.location;
