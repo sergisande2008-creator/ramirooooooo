@@ -8,11 +8,77 @@ import { Button } from './Button';
 
 let sharedAudioContext: AudioContext | null = null;
 const initAudio = () => {
-  return null;
+  try {
+    if (!sharedAudioContext) {
+      const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+      if (Ctx) {
+        sharedAudioContext = new Ctx();
+      }
+    }
+    if (sharedAudioContext && sharedAudioContext.state === 'suspended') {
+      sharedAudioContext.resume();
+    }
+    return sharedAudioContext;
+  } catch (e) {
+    return null;
+  }
 };
 
+if (typeof window !== 'undefined') {
+  const unlockAudio = () => {
+    initAudio();
+    window.removeEventListener('click', unlockAudio);
+    window.removeEventListener('touchstart', unlockAudio);
+  };
+  window.addEventListener('click', unlockAudio);
+  window.addEventListener('touchstart', unlockAudio);
+}
+
 const playTone = (type: 'pop' | 'bells') => {
-  // Sound logic removed
+  try {
+    const ctx = initAudio();
+    if (!ctx) return;
+    
+    if (type === 'pop') {
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.04);
+      
+      gainNode.gain.setValueAtTime(0.05, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+      
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.04);
+    } else if (type === 'bells') {
+      const playBell = (freq: number, delay: number) => {
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+        
+        gainNode.gain.setValueAtTime(0, ctx.currentTime + delay);
+        gainNode.gain.linearRampToValueAtTime(0.1, ctx.currentTime + delay + 0.02);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.8);
+        
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + 0.8);
+      };
+
+      playBell(1046.50, 0); // C6
+      playBell(1318.51, 0.15); // E6
+      playBell(1567.98, 0.3); // G6
+    }
+  } catch (e) {
+    // Ignore audio errors
+  }
 };
 
 import { 
@@ -2573,7 +2639,7 @@ const App: React.FC = () => {
 
   // Cart Logic
   const addToCart = (item: MenuItem) => {
-    // Sound removed
+    playTone('pop');
     setCart(prev => {
       const existing = prev.find(i => i.id === item.id);
       if (existing) {

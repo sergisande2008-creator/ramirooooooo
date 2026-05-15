@@ -97,12 +97,7 @@ export const UI_TRANSLATIONS = {
     admin_no_reviews: 'No hay reseñas pendientes.',
     admin_review_new: 'Nuevo',
     admin_review_no_comment: 'Sin comentario',
-    admin_mark_read: 'Marcar como leída',
-    admin_ai_coach: 'Entrenador AI',
-    admin_ask_insight: 'Solicitar Análisis de Nexus Coach AI',
-    admin_analyzing: 'Analizando situación...',
-    admin_no_details: 'No hay suficientes detalles en el comentario para un análisis.',
-    admin_ai_error: 'Error al conectar con Nexus Coach AI.'
+    admin_mark_read: 'Marcar como leída'
   },
   ca: {
     enter_as_diner: 'ENTRAR COM A COMENSAL',
@@ -200,12 +195,7 @@ export const UI_TRANSLATIONS = {
     admin_no_reviews: 'No hi ha ressenyes pendents.',
     admin_review_new: 'Nou',
     admin_review_no_comment: 'Sense comentari',
-    admin_mark_read: 'Marcar com a llegida',
-    admin_ai_coach: 'Entrenador AI',
-    admin_ask_insight: 'Sol·licitar Anàlisi de Nexus Coach AI',
-    admin_analyzing: 'Analitzant situació...',
-    admin_no_details: 'No hi ha prou detalls en el comentari per a una anàlisi.',
-    admin_ai_error: 'Error en connectar amb Nexus Coach AI.'
+    admin_mark_read: 'Marcar com a llegida'
   },
   en: {
     enter_as_diner: 'ENTER AS DINER',
@@ -303,12 +293,7 @@ export const UI_TRANSLATIONS = {
     admin_no_reviews: 'No pending reviews.',
     admin_review_new: 'New',
     admin_review_no_comment: 'No comment',
-    admin_mark_read: 'Mark as read',
-    admin_ai_coach: 'AI Coach',
-    admin_ask_insight: 'Request Nexus Coach AI Analysis',
-    admin_analyzing: 'Analyzing situation...',
-    admin_no_details: 'Not enough details in the comment for analysis.',
-    admin_ai_error: 'Error connecting to Nexus Coach AI.'
+    admin_mark_read: 'Mark as read'
   }
 };
 
