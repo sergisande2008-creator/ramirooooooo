@@ -34,10 +34,23 @@ if (typeof window !== 'undefined') {
   window.addEventListener('touchstart', unlockAudio);
 }
 
-const playTone = (type: 'pop' | 'bells' | 'horn') => {
+const playTone = async (type: 'pop' | 'bells' | 'horn') => {
   try {
     const ctx = initAudio();
     if (!ctx) return;
+    
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+    
+    // Check if after trying to resume it's still suspended
+    // if it is, the browser is blocking it due to no user interaction.
+    if (ctx.state === 'suspended') {
+      console.warn("Audio blocked by browser. User interaction needed.");
+      return;
+    }
+
+    const t = ctx.currentTime;
     
     if (type === 'pop') {
       const osc = ctx.createOscillator();
@@ -46,14 +59,14 @@ const playTone = (type: 'pop' | 'bells' | 'horn') => {
       gainNode.connect(ctx.destination);
       
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(800, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.04);
+      osc.frequency.setValueAtTime(800, t);
+      osc.frequency.exponentialRampToValueAtTime(1200, t + 0.04);
       
-      gainNode.gain.setValueAtTime(0.05, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+      gainNode.gain.setValueAtTime(0.05, t);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
       
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.04);
+      osc.start(t);
+      osc.stop(t + 0.04);
     } else if (type === 'bells') {
       const playBell = (freq: number, delay: number) => {
         const osc = ctx.createOscillator();
@@ -62,14 +75,14 @@ const playTone = (type: 'pop' | 'bells' | 'horn') => {
         gainNode.connect(ctx.destination);
         
         osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+        osc.frequency.setValueAtTime(freq, t + delay);
         
-        gainNode.gain.setValueAtTime(0, ctx.currentTime + delay);
-        gainNode.gain.linearRampToValueAtTime(0.1, ctx.currentTime + delay + 0.02);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.8);
+        gainNode.gain.setValueAtTime(0, t + delay);
+        gainNode.gain.linearRampToValueAtTime(0.1, t + delay + 0.02);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.8);
         
-        osc.start(ctx.currentTime + delay);
-        osc.stop(ctx.currentTime + delay + 0.8);
+        osc.start(t + delay);
+        osc.stop(t + delay + 0.8);
       };
 
       playBell(1046.50, 0); // C6
@@ -84,20 +97,20 @@ const playTone = (type: 'pop' | 'bells' | 'horn') => {
       osc2.connect(gainNode);
       gainNode.connect(ctx.destination);
       
-      osc1.type = 'sawtooth';
-      osc2.type = 'square';
-      osc1.frequency.setValueAtTime(300, ctx.currentTime);
-      osc2.frequency.setValueAtTime(305, ctx.currentTime); // Slight detune
+      osc1.type = 'square';
+      osc2.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(400, t);
+      osc2.frequency.setValueAtTime(404, t);
       
-      gainNode.gain.setValueAtTime(0, ctx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.1);
-      gainNode.gain.setValueAtTime(0.1, ctx.currentTime + 0.4);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      gainNode.gain.setValueAtTime(0, t);
+      gainNode.gain.linearRampToValueAtTime(0.2, t + 0.05);
+      gainNode.gain.linearRampToValueAtTime(0.2, t + 0.5);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
       
-      osc1.start(ctx.currentTime);
-      osc2.start(ctx.currentTime);
-      osc1.stop(ctx.currentTime + 0.6);
-      osc2.stop(ctx.currentTime + 0.6);
+      osc1.start(t);
+      osc2.start(t);
+      osc1.stop(t + 1.0);
+      osc2.stop(t + 1.0);
     }
   } catch (e) {
     // Ignore audio errors
