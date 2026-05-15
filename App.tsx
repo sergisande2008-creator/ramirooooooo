@@ -1,76 +1,5 @@
 // ... (Keep existing imports)
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { GoogleGenAI } from '@google/genai';
-
-const FeedbackAIInsight: React.FC<{ feedback: Feedback, language: Language }> = ({ feedback, language }) => {
-  const t = UI_TRANSLATIONS[language];
-  const [insight, setInsight] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const generateInsight = async () => {
-    if (!feedback.comment || feedback.comment.trim() === '') {
-      setInsight(t.admin_no_details);
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const prompt = `Actúa como un coach de restaurantes de estrella Michelin. 
-Un cliente dejó esta reseña: "${feedback.comment}" de ${feedback.rating} estrellas en la mesa ${feedback.tableNumber} (${feedback.location}).
-
-Escribe un consejo directo, cortísimo (máximo 2 líneas) y 100% accionable sobre cómo evitar este problema en el futuro o cómo gestionar esa mesa ahora mismo. Cero introducciones, ve directo al grano. Responde en el idioma que corresponda al siguiente código: ${language}.`;
-      
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-      });
-      setInsight(response.text || t.admin_ai_error);
-    } catch (err: any) {
-      console.error("Coach AI Error:", err);
-      // Fallback message with the error for debugging
-      setInsight(`${t.admin_ai_error} (${err.message || 'Unknown'})`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (feedback.rating > 3) return null;
-
-  return (
-    <div className="mt-4 pt-4 border-t border-slate-100/50">
-      {!insight && !loading && (
-        <button 
-          onClick={generateInsight}
-          className="flex items-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100"
-        >
-          <BrainCircuit size={14} /> {t.admin_ask_insight}
-        </button>
-      )}
-      
-      {loading && (
-        <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 bg-indigo-50/50 px-3 py-1.5 rounded-lg w-it">
-          <RefreshCw size={14} className="animate-spin" /> {t.admin_analyzing}
-        </div>
-      )}
-
-      {insight && !loading && (
-        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-3 rounded-xl border border-indigo-100 relative overflow-hidden group">
-          <div className="absolute right-0 top-0 w-24 h-24 bg-purple-500 rounded-full blur-2xl opacity-10"></div>
-          <div className="relative z-10 flex gap-3 items-start">
-             <div className="bg-white p-1.5 rounded-lg shadow-sm text-indigo-600 mt-0.5">
-               <BrainCircuit size={16} />
-             </div>
-             <div>
-               <p className="text-[10px] font-black uppercase text-indigo-800 tracking-wider mb-0.5">{t.admin_ai_coach}</p>
-               <p className="text-sm text-slate-700 leading-relaxed font-medium">{insight}</p>
-             </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
 import { Screen, MenuCategory, MenuItem, CartItem, Order, OrderStatus, BillRequest, Feedback } from './types';
 import { MENU_ITEMS, TABLES } from './constants';
@@ -122,7 +51,6 @@ import {
   Sparkles,
   Lightbulb,
   Zap,
-  BrainCircuit,
   Star,
   Trophy,
   Target,
@@ -2470,7 +2398,6 @@ const AdminDashboardScreen: React.FC<{
                                               </button>
                                           )}
                                       </div>
-                                      <FeedbackAIInsight feedback={feedback} language={language} />
                                   </div>
                               ))
                           )}
