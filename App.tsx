@@ -79,78 +79,11 @@ import { Button } from './Button';
 
 let sharedAudioContext: AudioContext | null = null;
 const initAudio = () => {
-  try {
-    if (!sharedAudioContext) {
-      const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-      if (Ctx) {
-        sharedAudioContext = new Ctx();
-      }
-    }
-    if (sharedAudioContext && sharedAudioContext.state === 'suspended') {
-      sharedAudioContext.resume();
-    }
-    return sharedAudioContext;
-  } catch (e) {
-    return null;
-  }
+  return null;
 };
 
-// Initialize silently on first interaction to allow notifications later
-if (typeof window !== 'undefined') {
-  const unlockAudio = () => {
-    initAudio();
-    window.removeEventListener('click', unlockAudio);
-    window.removeEventListener('touchstart', unlockAudio);
-  };
-  window.addEventListener('click', unlockAudio);
-  window.addEventListener('touchstart', unlockAudio);
-}
-
 const playTone = (type: 'pop' | 'bells') => {
-  try {
-    const ctx = initAudio();
-    if (!ctx) return;
-    
-    if (type === 'pop') {
-      const osc = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      osc.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(800, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.04);
-      
-      gainNode.gain.setValueAtTime(0.05, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
-      
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.04);
-    } else if (type === 'bells') {
-      const playBell = (freq: number, delay: number) => {
-        const osc = ctx.createOscillator();
-        const gainNode = ctx.createGain();
-        osc.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
-        
-        gainNode.gain.setValueAtTime(0, ctx.currentTime + delay);
-        gainNode.gain.linearRampToValueAtTime(0.1, ctx.currentTime + delay + 0.02);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.8);
-        
-        osc.start(ctx.currentTime + delay);
-        osc.stop(ctx.currentTime + delay + 0.8);
-      };
-
-      playBell(1046.50, 0); // C6
-      playBell(1318.51, 0.15); // E6
-      playBell(1567.98, 0.3); // G6
-    }
-  } catch (e) {
-    // Ignore audio errors
-  }
+  // Sound logic removed
 };
 
 import { 
@@ -1520,19 +1453,6 @@ const KitchenDashboardScreen: React.FC<{
   const activeOrders = orders.filter(o => o.status !== OrderStatus.COMPLETED);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   
-  const previousPendingIds = useRef(new Set(orders.filter(o => o.status === OrderStatus.PENDING).map(o => o.id)));
-
-  useEffect(() => {
-    const currentPendingIds = new Set(orders.filter(o => o.status === OrderStatus.PENDING).map(o => o.id));
-    const isNewOrder = [...currentPendingIds].some(id => !previousPendingIds.current.has(id));
-    
-    if (isNewOrder) {
-      playTone('bells');
-    }
-    
-    previousPendingIds.current = currentPendingIds;
-  }, [orders]);
-
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -1689,53 +1609,6 @@ const AdminDashboardScreen: React.FC<{
       const now = new Date();
       return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   });
-
-  const prevPendingBillsRef = useRef<string[]>(
-    billRequests.filter(r => r.status === 'PENDING').map(b => b.id)
-  );
-
-  const playNotificationSound = React.useCallback((tableNumber: string, location: string) => {
-    try {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        
-        const friendlyLocation = location.toLowerCase();
-        const basePhrase = `Han pedido la cuenta de la mesa ${tableNumber} de ${friendlyLocation}.`;
-        const phrase = `${basePhrase} ${basePhrase} ${basePhrase}`;
-        
-        const utterance = new SpeechSynthesisUtterance(phrase);
-        utterance.lang = 'es-ES';
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        
-        const voices = window.speechSynthesis.getVoices();
-        const spanishVoice = voices.find(v => v.lang.startsWith('es'));
-        if (spanishVoice) {
-            utterance.voice = spanishVoice;
-        }
-
-        window.speechSynthesis.speak(utterance);
-      }
-    } catch (e) {
-      console.log('Audio playback failed', e);
-    }
-  }, []);
-
-  useEffect(() => {
-    const pendingBills = billRequests.filter(r => r.status === 'PENDING');
-    const pendingIds = pendingBills.map(b => b.id);
-    
-    // Find new bills that weren't in the previous list
-    const newBills = pendingBills.filter(b => !prevPendingBillsRef.current.includes(b.id));
-    
-    if (newBills.length > 0) {
-      // Just play for the latest one
-      const latestBill = newBills[0];
-      playNotificationSound(latestBill.tableNumber, latestBill.location);
-    }
-    
-    prevPendingBillsRef.current = pendingIds;
-  }, [billRequests, playNotificationSound]);
 
   // Filter and sort orders
   const sortedOrders = [...orders]
@@ -2772,7 +2645,7 @@ const App: React.FC = () => {
 
   // Cart Logic
   const addToCart = (item: MenuItem) => {
-    playTone('pop');
+    // Sound removed
     setCart(prev => {
       const existing = prev.find(i => i.id === item.id);
       if (existing) {
