@@ -1604,6 +1604,77 @@ const AdminDashboardScreen: React.FC<{
       return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   });
 
+  // Track fully requested tables for sound notifications
+  const prevFullyRequestedTables = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+     const pendingBills = billRequests.filter(b => b.status === 'PENDING').sort((a, b) => a.timestamp - b.timestamp);
+     const groupedBills = pendingBills.reduce((acc, bill) => {
+         const key = `${bill.location}-${bill.tableNumber}`;
+         if (!acc[key]) acc[key] = [];
+         acc[key].push(bill);
+         return acc;
+     }, {} as Record<string, BillRequest[]>);
+
+     const currentFullyRequested = new Set<string>();
+
+     Object.values(groupedBills).forEach((tableBillsRaw) => {
+         const tableBills = tableBillsRaw as BillRequest[];
+         const firstBill = tableBills[0];
+         let isFullyRequested = false;
+         const firstSplitBill = tableBills.find(b => b.splitWays !== undefined);
+         if (firstSplitBill) {
+             isFullyRequested = tableBills.length >= firstSplitBill.splitWays;
+         } else {
+             const activeTableOrders = orders.filter(o => o.location === firstBill.location && o.tableNumber === firstBill.tableNumber && !o.paid);
+             let totalUnpaidQty = 0;
+             activeTableOrders.forEach(o => {
+                 o.items.forEach(item => {
+                     totalUnpaidQty += item.quantity - (item.paidQuantity || 0);
+                 });
+             });
+             let totalRequestedQty = 0;
+             tableBills.forEach(b => {
+                 if (b.itemsToPay && b.itemsToPay.length > 0) {
+                     b.itemsToPay.forEach(item => {
+                         totalRequestedQty += item.quantity;
+                     });
+                 } else {
+                     totalRequestedQty += totalUnpaidQty; 
+                 }
+             });
+             isFullyRequested = totalUnpaidQty === 0 || totalRequestedQty >= totalUnpaidQty;
+         }
+         
+         if (isFullyRequested) {
+             currentFullyRequested.add(`${firstBill.location}-${firstBill.tableNumber}`);
+         }
+     });
+
+     let newRequests: string[] = [];
+     currentFullyRequested.forEach(key => {
+         if (!prevFullyRequestedTables.current.has(key)) {
+             newRequests.push(key);
+         }
+     });
+
+     if (newRequests.length > 0) {
+         if ('speechSynthesis' in window) {
+             newRequests.forEach(key => {
+                 // Format is "Location-TableNumber", but Location might have hyphens. We really just need the table number.
+                 // let's just grab the last part as table, and the rest as location just in case
+                 const parts = key.split('-');
+                 const tableText = parts[parts.length - 1];
+                 const msg = new SpeechSynthesisUtterance(`Han pedido la cuenta de la mesa ${tableText}`);
+                 msg.lang = 'es-ES';
+                 window.speechSynthesis.speak(msg);
+             });
+         }
+     }
+
+     prevFullyRequestedTables.current = currentFullyRequested;
+  }, [billRequests, orders]);
+
   // Filter and sort orders
   const sortedOrders = [...orders]
     .filter(order => {
