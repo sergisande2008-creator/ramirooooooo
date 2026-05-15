@@ -1605,7 +1605,7 @@ const AdminDashboardScreen: React.FC<{
   });
 
   // Track fully requested tables for sound notifications
-  const prevFullyRequestedTables = useRef<Set<string>>(new Set());
+  const prevFullyRequestedTables = useRef<Set<string> | null>(null);
 
   useEffect(() => {
      const pendingBills = billRequests.filter(b => b.status === 'PENDING').sort((a, b) => a.timestamp - b.timestamp);
@@ -1651,24 +1651,26 @@ const AdminDashboardScreen: React.FC<{
          }
      });
 
-     let newRequests: string[] = [];
-     currentFullyRequested.forEach(key => {
-         if (!prevFullyRequestedTables.current.has(key)) {
-             newRequests.push(key);
-         }
-     });
+     if (prevFullyRequestedTables.current !== null) {
+         let newRequests: string[] = [];
+         currentFullyRequested.forEach(key => {
+             if (!prevFullyRequestedTables.current!.has(key)) {
+                 newRequests.push(key);
+             }
+         });
 
-     if (newRequests.length > 0) {
-         if ('speechSynthesis' in window) {
-             newRequests.forEach(key => {
-                 // Format is "Location-TableNumber", but Location might have hyphens. We really just need the table number.
-                 // let's just grab the last part as table, and the rest as location just in case
-                 const parts = key.split('-');
-                 const tableText = parts[parts.length - 1];
-                 const msg = new SpeechSynthesisUtterance(`Han pedido la cuenta de la mesa ${tableText}`);
-                 msg.lang = 'es-ES';
-                 window.speechSynthesis.speak(msg);
-             });
+         if (newRequests.length > 0) {
+             if ('speechSynthesis' in window) {
+                 newRequests.forEach(key => {
+                     const parts = key.split('-');
+                     const tableText = parts[parts.length - 1];
+                     const msg = new SpeechSynthesisUtterance(`Han pedido la cuenta de la mesa ${tableText}`);
+                     msg.lang = 'es-ES';
+                     msg.rate = 1.0;
+                     msg.pitch = 1.0;
+                     window.speechSynthesis.speak(msg);
+                 });
+             }
          }
      }
 
