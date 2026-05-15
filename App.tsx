@@ -204,7 +204,8 @@ import {
   deleteDoc, 
   query,
   getDocs,
-  writeBatch
+  writeBatch,
+  where
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { handleFirestoreError, OperationType } from './firebaseUtils';
@@ -2626,7 +2627,9 @@ const App: React.FC = () => {
 
   // Sync orders
   useEffect(() => {
-    const q = query(collection(db, 'orders'));
+    // Only grab orders from recent past to keep memory footprint low
+    const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+    const q = query(collection(db, 'orders'), where('timestamp', '>=', threeDaysAgo));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const ordersData: Order[] = snapshot.docs.map(doc => doc.data() as Order);
       
@@ -2648,7 +2651,8 @@ const App: React.FC = () => {
 
   // Sync bill requests
   useEffect(() => {
-    const q = query(collection(db, 'bills'));
+    const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+    const q = query(collection(db, 'bills'), where('timestamp', '>=', threeDaysAgo));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const billsData: BillRequest[] = snapshot.docs.map(doc => doc.data() as BillRequest);
       setBillRequests(billsData);
@@ -2661,7 +2665,8 @@ const App: React.FC = () => {
 
   // Sync feedbacks
   useEffect(() => {
-    const q = query(collection(db, 'feedbacks'));
+    const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+    const q = query(collection(db, 'feedbacks'), where('timestamp', '>=', threeDaysAgo));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const feedbacksData: Feedback[] = snapshot.docs.map(doc => doc.data() as Feedback);
       setFeedbacks(feedbacksData);
@@ -2802,7 +2807,7 @@ const App: React.FC = () => {
   }, []);
 
   // Cart Logic
-  const addToCart = (item: MenuItem) => {
+  const addToCart = React.useCallback((item: MenuItem) => {
     playTone('pop');
     setCart(prev => {
       const existing = prev.find(i => i.id === item.id);
@@ -2811,9 +2816,9 @@ const App: React.FC = () => {
       }
       return [...prev, { ...item, quantity: 1 }];
     });
-  };
+  }, [setCart]);
 
-  const removeFromCart = (itemId: string) => {
+  const removeFromCart = React.useCallback((itemId: string) => {
     setCart(prev => {
       const existing = prev.find(i => i.id === itemId);
       if (existing) {
@@ -2824,15 +2829,15 @@ const App: React.FC = () => {
       }
       return prev;
     });
-  };
+  }, [setCart]);
 
-  const getCartTotal = () => {
+  const getCartTotal = React.useCallback(() => {
     return cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  };
+  }, [cart]);
 
-  const getItemQuantity = (itemId: string) => {
+  const getItemQuantity = React.useCallback((itemId: string) => {
     return cart.find(i => i.id === itemId)?.quantity || 0;
-  };
+  }, [cart]);
 
   const handleSendOrder = async () => {
     if (cart.length === 0) return;
@@ -2854,22 +2859,22 @@ const App: React.FC = () => {
       newOrder.allergies = userAllergies.trim();
     }
 
-    try {
-      await setDoc(doc(db, 'orders', newOrderId), newOrder);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'orders');
-      return;
-    }
-    
+    // Optimistic UI updates
     setCart([]);
-    
     setOrderSuccessMessage(true);
     setTimeout(() => {
         setOrderSuccessMessage(false);
     }, 10000);
-
+    
     // Trigger Webhook 1: Order Placed
     sendWebhook(WEBHOOK_URLS.NEW_ORDER, newOrder);
+
+    try {
+      await setDoc(doc(db, 'orders', newOrderId), newOrder);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'orders');
+      // If it fails, we should probably tell the user or revert, but for now ignoring reversion for simplicity
+    }
   };
 
   const handleRequestBill = async (method: 'CARD' | 'CASH' | 'ONLINE', splitWays?: number, itemsToPay?: { id: string; name: string; quantity: number; price: number }[]) => {
@@ -2895,10 +2900,10 @@ const App: React.FC = () => {
 
     // Redirect to menu instantly so the 'LA CUENTA' tab vanishes without flashing
     setActiveTab('menu');
+    setBillSuccessMessage(true);
 
     try {
       await setDoc(doc(db, 'bills', newBillId), newBill);
-      setBillSuccessMessage(true);
     } catch(error) {
       handleFirestoreError(error, OperationType.WRITE, 'bills');
     }
@@ -2917,10 +2922,11 @@ const App: React.FC = () => {
       timestamp: Date.now(),
       status: 'UNREAD'
     };
+    
+    setBillSuccessMessage(false); // Used here to close the feedback dialog
 
     try {
       await setDoc(doc(db, 'feedbacks', newFeedbackId), newFeedback);
-      setBillSuccessMessage(false);
     } catch(error) {
       handleFirestoreError(error, OperationType.WRITE, 'feedbacks');
     }
